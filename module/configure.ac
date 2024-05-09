@@ -65,6 +65,9 @@ AC_HELP_STRING([--enable-zsh-debug], [compile with debug code and debugger symbo
   AC_DEFINE(DEBUG)
 fi])
 
+CPPFLAGS="`pkg-config --cflags rime` $CPPFLAGS"
+LIBS="`pkg-config --libs rime` $LIBS"
+
 dnl Do you want zsh memory allocation routines.
 ifdef([zsh-mem],[undefine([zsh-mem])])dnl
 AH_TEMPLATE([ZSH_MEM],

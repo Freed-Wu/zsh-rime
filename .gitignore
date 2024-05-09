@@ -1,3 +1,19 @@
+*.zwc
+*.mk
+*.in
+# cd module/
+# Src/mkmakemod.sh Src/zi Makefile
+!Src/zi/Makefile.in
+COMPILED_AT
+compile_commands.json
+*.mdh
+*.mdhs
+*.mdhi
+*.export
+*.epro
+*.pro
+*.syms
+
 Makefile
 tags
 TAGS

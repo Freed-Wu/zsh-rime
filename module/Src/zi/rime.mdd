@@ -1,0 +1,7 @@
+name=zdharma/rime
+link=dynamic
+load=no
+
+autofeatures="b:rime p:rime_schema_ids p:rime_schema_names p:rime_schema_index p:rime_session_id"
+
+objects="rime.o"
