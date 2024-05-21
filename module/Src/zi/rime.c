@@ -103,7 +103,6 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 		return RimeSelectSchema(session_id, args[0]) ? EXIT_SUCCESS : EXIT_FAILURE;
 		int mask;
 	    case 'p':
-	    pc:
 		mask = args[0] && args[1] ? strtol(args[1], NULL, 0) : 0;
 		// mbstowcs() will bring segmentation fault
 		if (args[0])
@@ -113,11 +112,9 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 			}
 		    }
 		else
-	    clear:
 		    // ； = 0xff1b
 		    return RimeProcessKey(session_id, 0xff1b, mask) ? EXIT_SUCCESS : EXIT_FAILURE;
-		if (*c == 'p')
-		    return EXIT_SUCCESS;
+		return EXIT_SUCCESS;
 		RIME_STRUCT(RimeContext, context);
 	    case 'c':
 		if (!RimeGetContext(session_id, &context))
@@ -131,17 +128,42 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 		    freearray(candidates);
 		candidates = zarrdup(_candidates);
 		freearray(_candidates);
-		if (*c == 'c')
-		    return EXIT_SUCCESS;
-		goto clear;
+		return EXIT_SUCCESS;
 	}
     }
     if (flag)
     	return EXIT_SUCCESS;
-    if (args[0])
-	goto pc;
-    printf("rime [-%s] ...\n", bintab[0].optstr);
-    return EXIT_SUCCESS;
+    if (!args[0]) {
+	printf("rime [-%s] ...\n", bintab[0].optstr);
+	return EXIT_SUCCESS;
+    }
+    int mask = args[1] ? strtol(args[1], NULL, 0) : 0;
+    // mbstowcs() will bring segmentation fault
+    for (char *key = args[0]; *key; key++) {
+	if (!RimeProcessKey(session_id, *key, mask)) {
+	    return EXIT_FAILURE;
+	}
+    }
+    RIME_STRUCT(RimeContext, context);
+    if (!RimeGetContext(session_id, &context))
+	return EXIT_FAILURE;
+    char *_candidates[DEFAULT_BUFFER_SIZE] = {};
+    size_t num = 0;
+    do {
+	for (int i = 0; i < context.menu.num_candidates; i++) {
+	    _candidates[num + i] = metafy(context.menu.candidates[i].text, strlen(context.menu.candidates[i].text), META_DUP);
+	}
+	num += context.menu.num_candidates;
+	if (!RimeProcessKey(session_id, '=', 0))
+	    break;
+	if (!RimeGetContext(session_id, &context))
+	    break;
+    } while (!context.menu.is_last_page && num + context.menu.page_size < DEFAULT_BUFFER_SIZE);
+    if (candidates)
+	freearray(candidates);
+    candidates = zarrdup(_candidates);
+    // ； = 0xff1b
+    return RimeProcessKey(session_id, 0xff1b, mask) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 /*
