@@ -42,7 +42,7 @@ rime_compile() {
 
             local ts="$EPOCHSECONDS"
             [[ -z "$ts" ]] && ts=$( date +%s )
-            builtin echo "$ts" >! "${RIME_REPO_DIR}/module/COMPILED_AT"
+            builtin echo "$ts" >! COMPILED_AT
         fi
     )
 }
