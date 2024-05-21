@@ -65,17 +65,11 @@ fi
 if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
     MODULE_PATH="${RIME_REPO_DIR}/module/Src":"$MODULE_PATH"
     zmodload zi/rime
-    rime -C
+
+    rime -Cgl
     _rime_context() {
-        rime -p nihk
-	local -a candidates results=($(rime -c))
-	while (( $#results )); do
-	    candidates+=($results)
-	    rime -p =
-	    results=($(rime -c))
-	done
-        _values "$(rime -g)" $candidates
-        rime -p
+	rime dajw
+        _values $rime_schema_id $rime_candidates
     }
     _rime_get_context() {
       eval "$_comp_setup"

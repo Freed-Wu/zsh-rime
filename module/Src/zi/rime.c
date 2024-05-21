@@ -41,64 +41,106 @@ static struct builtin bintab[] = {
 };
 
 static zulong session_id;
+static char *schema_id;
+static char **schema_ids;
+static char **schema_names;
+static char **candidates;
 
 /**/
 static int
 rime(char *nam, char **args, Options ops, UNUSED(int func))
 {
+    bool flag = false;
     unsigned char *c;
-    for (c = (unsigned char *)bintab[0].optstr; *c; c++)
-	if (OPT_ISSET(ops, *c))
-	    break;
-    switch (*c) {
-	case 'C':
-	    return (session_id = RimeCreateSession()) ? EXIT_SUCCESS : EXIT_FAILURE;
-	case 'D':
-	    return RimeDestroySession(session_id) ? EXIT_SUCCESS : EXIT_FAILURE;
-	    char buffer[DEFAULT_BUFFER_SIZE];
-	case 'g':
-	    if (!RimeGetCurrentSchema(session_id, buffer, DEFAULT_BUFFER_SIZE))
+    for (c = (unsigned char *)bintab[0].optstr; *c; c++) {
+	if (!OPT_ISSET(ops, *c))
+	    continue;
+	flag = true;
+	switch (*c) {
+	    case 'C':
+		if ((session_id = RimeCreateSession()))
+		    break;
 		return EXIT_FAILURE;
-	    puts(buffer);
-	    return EXIT_SUCCESS;
-	    RimeSchemaList schema_list;
-	case 'l':
-	    if (!RimeGetSchemaList(&schema_list))
+	    case 'D':
+		if (RimeDestroySession(session_id))
+		    break;
 		return EXIT_FAILURE;
-	    for (size_t i = 0; i < schema_list.size; i++) {
-		printf("%s %s\n", schema_list.list[i].schema_id, schema_list.list[i].name);
-	    }
-	    return EXIT_SUCCESS;
-	case 's':
-	    if (args[0] == NULL) {
-		fputs("rime -s schema_id", stderr);
-		return 2;
-	    }
-	    return RimeSelectSchema(session_id, args[0]) ? EXIT_SUCCESS : EXIT_FAILURE;
-	    int mask;
-	case 'p':
-	    mask = args[0] && args[1] ? strtol(args[1], NULL, 0) : 0;
-	    // mbstowcs() will bring segmentation fault
-	    if (args[0])
-		for (char *key = args[0]; *key; key++) {
-		    if (!RimeProcessKey(session_id, *key, mask)) {
-		    	return EXIT_FAILURE;
-		    }
+		char buffer[DEFAULT_BUFFER_SIZE];
+	    case 'g':
+		if (!RimeGetCurrentSchema(session_id, buffer, DEFAULT_BUFFER_SIZE))
+		    return EXIT_FAILURE;
+		zsfree(schema_id);
+		schema_id = ztrdup(buffer);
+		break;
+		RimeSchemaList schema_list;
+	    case 'l':
+		if (!RimeGetSchemaList(&schema_list))
+		    return EXIT_FAILURE;
+		size_t size = (schema_list.size + 1) * sizeof(char *);
+		char **ids = zalloc(size);
+		for (size_t i = 0; i < schema_list.size; i++)
+		    ids[i] = schema_list.list[i].schema_id;
+		ids[schema_list.size] = NULL;
+		if (schema_ids)
+		    freearray(schema_ids);
+		schema_ids = zarrdup(ids);
+		freearray(ids);
+
+		char **names = zalloc(size);
+		for (size_t i = 0; i < schema_list.size; i++)
+		    names[i] = metafy(schema_list.list[i].name, strlen(schema_list.list[i].name), META_DUP);
+		names[schema_list.size] = NULL;
+		if (schema_names)
+		    freearray(schema_names);
+		schema_names = zarrdup(names);
+		freearray(names);
+		break;
+	    case 's':
+		if (args[0] == NULL) {
+		    fputs("rime -s schema_id", stderr);
+		    return 2;
 		}
-	    else
-		// ； = 0xff1b
-	    	return RimeProcessKey(session_id, 0xff1b, mask) ? EXIT_SUCCESS : EXIT_FAILURE;
-	    return EXIT_SUCCESS;
-	    RIME_STRUCT(RimeContext, context);
-	case 'c':
-	    if (!RimeGetContext(session_id, &context))
-		return EXIT_FAILURE;
-	    for (int i = 0; i < context.menu.num_candidates; i++)
-		printf("%s\n", context.menu.candidates[i].text);
-	    return EXIT_SUCCESS;
-	default:
-	    printf("rime [-%s] ...\n", bintab[0].optstr);
+		return RimeSelectSchema(session_id, args[0]) ? EXIT_SUCCESS : EXIT_FAILURE;
+		int mask;
+	    case 'p':
+	    pc:
+		mask = args[0] && args[1] ? strtol(args[1], NULL, 0) : 0;
+		// mbstowcs() will bring segmentation fault
+		if (args[0])
+		    for (char *key = args[0]; *key; key++) {
+			if (!RimeProcessKey(session_id, *key, mask)) {
+			    return EXIT_FAILURE;
+			}
+		    }
+		else
+	    clear:
+		    // ； = 0xff1b
+		    return RimeProcessKey(session_id, 0xff1b, mask) ? EXIT_SUCCESS : EXIT_FAILURE;
+		if (*c == 'p')
+		    return EXIT_SUCCESS;
+		RIME_STRUCT(RimeContext, context);
+	    case 'c':
+		if (!RimeGetContext(session_id, &context))
+		    return EXIT_FAILURE;
+		size = (context.menu.num_candidates + 1) * sizeof(char *);
+		char **_candidates = zalloc(size);
+		for (int i = 0; i < context.menu.num_candidates; i++)
+		    _candidates[i] = metafy(context.menu.candidates[i].text, strlen(context.menu.candidates[i].text), META_DUP);
+		_candidates[context.menu.num_candidates] = NULL;
+		if (candidates)
+		    freearray(candidates);
+		candidates = zarrdup(_candidates);
+		freearray(_candidates);
+		if (*c == 'c')
+		    return EXIT_SUCCESS;
+		goto clear;
+	}
     }
+    if (flag)
+    	return EXIT_SUCCESS;
+    if (args[0])
+	goto pc;
+    printf("rime [-%s] ...\n", bintab[0].optstr);
     return EXIT_SUCCESS;
 }
 
@@ -111,6 +153,10 @@ static struct conddef cotab[] = {
 
 static struct paramdef patab[] = {
     INTPARAMDEF("rime_session_id", &session_id),
+    STRPARAMDEF("rime_schema_id", &schema_id),
+    ARRPARAMDEF("rime_schema_ids", &schema_ids),
+    ARRPARAMDEF("rime_schema_names", &schema_names),
+    ARRPARAMDEF("rime_candidates", &candidates),
 };
 
 static struct mathfunc mftab[] = {
