@@ -67,13 +67,16 @@ if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
     zmodload zi/rime
 
     rime -Cgl
-    _rime_context() {
-	rime dajw
-        _values $rime_schema_id $rime_candidates
-    }
     _rime_get_context() {
-      eval "$_comp_setup"
+      local left=${LBUFFER##* }
+      [[ -n $left ]] || return
+      _rime_context() {
+	  rime $left
+	  # replace all characters to empty to skip filter of matcher
+	  compadd -M "m:?=" -X $rime_schema_id -a rime_candidates
+      }
       _main_complete _rime_context
+      unfunction _rime_context
     }
     zle -C rime-get-context expand-or-complete _rime_get_context
 fi
