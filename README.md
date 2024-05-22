@@ -2,6 +2,8 @@
 
 ![screenshot](https://github.com/Freed-Wu/zsh-rime/assets/32936898/2dbaede6-4047-4fa7-9c39-9a7cca98b3bf)
 
+A video can be found [here](https://asciinema.org/a/660633).
+
 ## Dependencies
 
 - [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
