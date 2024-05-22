@@ -28,6 +28,9 @@ bindkey "^[^P" rime-previous-schema' \
 
 ```zsh
 source /the/path/of/*.plugin.zsh
+bindkey "^[^I" rime-get-context
+bindkey "^[^N" rime-next-schema
+bindkey "^[^P" rime-previous-schema
 ```
 
 ## Config
@@ -36,10 +39,4 @@ source /the/path/of/*.plugin.zsh
 zstyle -s ":plugin:rime" cppflags cppf || cppf="-I/usr/local/include"
 zstyle -s ":plugin:rime" cflags cf || cf="-Wall -O2 -g"
 zstyle -s ":plugin:rime" ldflags ldf || ldf="-L/usr/local/lib"
-```
-
-## Usage
-
-```zsh
-bindkey '^[^I' rime-get-context
 ```
