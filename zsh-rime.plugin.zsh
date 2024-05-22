@@ -36,9 +36,12 @@ rime_compile() {
         zmodload zsh/system && { zsystem flock -t 1 "${RIME_REPO_DIR}/module/configure.ac" || build=0; }
         if (( build )); then
             builtin cd "${RIME_REPO_DIR}/module"
-            CPPFLAGS="$cppf" CFLAGS="$cf" LDFLAGS="$ldf" ./configure
-            command make clean
-            command make
+	    if $+commands[nix]; then
+	    	local -a nix_shell=(nix-shell --pure --run)
+	    fi
+            CPPFLAGS="$cppf" CFLAGS="$cf" LDFLAGS="$ldf" $nix_shell ./configure
+            command $nix_shell make clean
+            command $nix_shell make
 
             local ts="$EPOCHSECONDS"
             [[ -z "$ts" ]] && ts=$( date +%s )
@@ -67,7 +70,7 @@ if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
     zmodload zi/rime
 
     rime -Cgl
-    _rime_get_context() {
+    rime-get-context() {
       local left=${LBUFFER##* }
       local input=${left##[^!-~]#}
       left=${left%%[\!-~]#}
@@ -79,7 +82,19 @@ if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
       _main_complete _rime_context
       unfunction _rime_context
     }
-    zle -C rime-get-context expand-or-complete _rime_get_context
+    zle -C rime-get-context expand-or-complete rime-get-context
+    rime-next-schema() {
+      local -i index=$rime_schema_ids[(I)$rime_schema_id]
+      (( $index == $#rime_schema_ids )) && index=1 || index+=1
+      rime -s $rime_schema_ids[index]
+    }
+    zle -N rime-next-schema
+    rime-previous-schema() {
+      local -i index=$rime_schema_ids[(I)$rime_schema_id]
+      (( $index == 1 )) && index=$#rime_schema_ids || index-=1
+      rime -s $rime_schema_ids[index]
+    }
+    zle -N rime-previous-schema
 fi
 
 unset RIME_REPO_DIR

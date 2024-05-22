@@ -5,5 +5,6 @@ mkShell {
   name = "zsh";
   buildInputs = [
     ncurses.dev
+    librime
   ];
 }

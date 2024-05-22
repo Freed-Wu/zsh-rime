@@ -13,9 +13,12 @@
 ### [zinit](https://github.com/zdharma-continuum/zinit/)
 
 ```zsh
+# disable for android due to bug about build system
 zinit id-as depth'1' wait lucid \
-  if'(($+commands[rime_deployer]))' \
-  atload'bindkey "^[^I" rime-get-context' \
+  if'((($+commands[rime_deployer] || $+commands[nix]) && ! $+PREFIX))' \
+  atload'bindkey "^[^I" rime-get-context
+bindkey "^[^N" rime-next-schema
+bindkey "^[^P" rime-previous-schema' \
   for Freed-Wu/zsh-rime
 ```
 
