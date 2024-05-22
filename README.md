@@ -1,6 +1,6 @@
 # zsh-rime
 
-![screenshot](https://github.com/Freed-Wu/zsh-rime/assets/32936898/2dbaede6-4047-4fa7-9c39-9a7cca98b3bf)
+![screenshot](https://github.com/Freed-Wu/zsh-rime/assets/32936898/589d588c-05c0-4ae0-8708-9791d4221d0a)
 
 A video can be found [here](https://asciinema.org/a/660633).
 
@@ -33,10 +33,34 @@ bindkey "^[^N" rime-next-schema
 bindkey "^[^P" rime-previous-schema
 ```
 
-## Config
+## Configure
 
 ```zsh
 zstyle -s ":plugin:rime" cppflags cppf || cppf="-I/usr/local/include"
 zstyle -s ":plugin:rime" cflags cf || cf="-Wall -O2 -g"
 zstyle -s ":plugin:rime" ldflags ldf || ldf="-L/usr/local/lib"
+```
+
+## Integrate
+
+### [powerlevel10k](https://github.com/romkatv/powerlevel10k)
+
+`p10k.zsh`:
+
+```zsh
+() {
+  # ...
+  typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
+    # ...
+    my_rime
+    # ...
+  )
+  # ...
+  function prompt_my_rime() {
+    if [[ -n $rime_schema_id ]]; then
+      p10k segment -bblack -fgreen -iㄓ -t$rime_schema_names[$rime_schema_ids[(I)$rime_schema_id]]
+    fi
+  }
+  # ...
+}
 ```
