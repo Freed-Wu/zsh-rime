@@ -100,7 +100,12 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 		    fputs("rime -s schema_id", stderr);
 		    return 2;
 		}
-		return RimeSelectSchema(session_id, args[0]) ? EXIT_SUCCESS : EXIT_FAILURE;
+		if (RimeSelectSchema(session_id, args[0])) {
+		    zsfree(schema_id);
+		    schema_id = ztrdup(args[0]);
+		    return EXIT_SUCCESS;
+		}
+		return EXIT_FAILURE;
 		int mask;
 	    case 'p':
 		mask = args[0] && args[1] ? strtol(args[1], NULL, 0) : 0;
