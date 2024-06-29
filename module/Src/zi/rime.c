@@ -167,8 +167,8 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
     if (candidates)
 	freearray(candidates);
     candidates = zarrdup(_candidates);
-    // ； = 0xff1b
-    return RimeProcessKey(session_id, 0xff1b, mask) ? EXIT_SUCCESS : EXIT_FAILURE;
+    RimeClearComposition(session_id);
+    return EXIT_SUCCESS;
 }
 
 /*
