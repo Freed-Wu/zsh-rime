@@ -94,6 +94,8 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 		    freearray(schema_names);
 		schema_names = zarrdup(names);
 		freearray(names);
+		// double free()
+		// RimeFreeSchemaList(&schema_list);
 		break;
 	    case 's':
 		if (args[0] == NULL) {
