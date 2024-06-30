@@ -1,0 +1,5 @@
+local -i index=$rime_schema_ids[(I)$rime_schema_id]
+(( $index == $#rime_schema_ids )) && index=1 || index+=1
+rime -s $rime_schema_ids[index]
+
+# ex: filetype=zsh

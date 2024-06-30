@@ -1,0 +1,29 @@
+#
+# Compile the module
+#
+
+# Get CPPFLAGS, CFLAGS, LDFLAGS
+local cppf cf ldf
+zstyle -s ":plugin:rime" cppflags cppf || cppf="-I/usr/local/include"
+zstyle -s ":plugin:rime" cflags cf || cf="-Wall -O2 -g"
+zstyle -s ":plugin:rime" ldflags ldf || ldf="-L/usr/local/lib"
+
+(
+    local build=1
+    zmodload zsh/system && { zsystem flock -t 1 "${RIME_REPO_DIR}/module/configure.ac" || build=0; }
+    if (( build )); then
+	builtin cd "${RIME_REPO_DIR}/module"
+	if $+commands[nix]; then
+	    local -a nix_shell=(nix-shell --pure --run)
+	fi
+	CPPFLAGS="$cppf" CFLAGS="$cf" LDFLAGS="$ldf" $nix_shell ./configure
+	command $nix_shell make clean
+	command $nix_shell make
+
+	local ts="$EPOCHSECONDS"
+	[[ -z "$ts" ]] && ts=$( date +%s )
+	builtin echo "$ts" >! COMPILED_AT
+    fi
+)
+
+# ex: filetype=zsh

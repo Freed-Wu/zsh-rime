@@ -1,0 +1,12 @@
+local left=${LBUFFER##* }
+local input=${left##[^!-~]#}
+left=${left%%[\!-~]#}
+[[ -n $input ]] && rime $input || return
+_rime_context() {
+    # replace all characters to empty to skip filter of matcher
+    compadd -S '' -M "m:?=" -P "$left" -X "$rime_schema_id" -a rime_candidates
+}
+_main_complete _rime_context
+unfunction _rime_context
+
+# ex: filetype=zsh
