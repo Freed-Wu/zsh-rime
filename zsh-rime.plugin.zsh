@@ -30,11 +30,11 @@ if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
     zmodload zi/rime
 
     rime -Cgl
-    autoload -Uz rime-complete
+    autoload -Uz rime-complete &&
     zle -C rime-complete expand-or-complete rime-complete
-    autoload -Uz rime-next-schema
+    autoload -Uz rime-next-schema &&
     zle -N rime-next-schema
-    autoload -Uz rime-previous-schema
+    autoload -Uz rime-previous-schema &&
     zle -N rime-previous-schema
 fi
 
