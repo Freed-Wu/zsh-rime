@@ -1,24 +1,12 @@
-#
-# No plugin manager is needed to use this file. All that is needed is adding:
-#   source {where-rime-is}/rime.plugin.zsh
-#
-# to ~/.zshrc.
-#
+# https://github.com/zdharma-continuum/Zsh-100-Commits-Club/blob/master/Zsh-Plugin-Standard.adoc
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
 
-0="${(%):-%N}" # this gives immunity to functionargzero being unset
-RIME_REPO_DIR="${0%/*}"
+RIME_REPO_DIR="${0:h}"
 
-#
-# Update FPATH if:
-# 1. Not loading with ZI
-# 2. Not having fpath already updated (that would equal: using other plugin manager)
-#
-
-if [[ -z "$ZPLG_CUR_PLUGIN" && "${fpath[(r)$RIME_REPO_DIR]}" != $RIME_REPO_DIR ]]; then
+if [[ "${fpath[(I)$RIME_REPO_DIR]}" == 0 ]]; then
     fpath+=( "$RIME_REPO_DIR" )
 fi
-
-[[ -z "${fg_bold[green]}" ]] && builtin autoload -Uz colors && colors
 
 autoload -Uz rime-compile
 
