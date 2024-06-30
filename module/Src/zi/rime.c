@@ -119,8 +119,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 			}
 		    }
 		else
-		    // ； = 0xff1b
-		    return RimeProcessKey(session_id, 0xff1b, mask) ? EXIT_SUCCESS : EXIT_FAILURE;
+		    RimeClearComposition(session_id);
 		return EXIT_SUCCESS;
 		RIME_STRUCT(RimeContext, context);
 	    case 'c':
