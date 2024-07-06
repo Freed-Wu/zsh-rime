@@ -13,7 +13,7 @@ zstyle -s ":plugin:rime" ldflags ldf || ldf="-L/usr/local/lib"
     zmodload zsh/system && { zsystem flock -t 1 "${RIME_REPO_DIR}/module/configure.ac" || build=0; }
     if (( build )); then
 	builtin cd "${RIME_REPO_DIR}/module"
-	if $+commands[nix]; then
+	if (( $+commands[nix] )); then
 	    local -a nix_shell=(nix-shell --pure --run)
 	fi
 	CPPFLAGS="$cppf" CFLAGS="$cf" LDFLAGS="$ldf" $nix_shell ./configure
