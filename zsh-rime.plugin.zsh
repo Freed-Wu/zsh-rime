@@ -29,7 +29,10 @@ if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
     MODULE_PATH="${RIME_REPO_DIR}/module/Src":"$MODULE_PATH"
     zmodload zi/rime
 
-    rime -Cgl
+    rime init &&
+      rime createSession rime_session_id &&
+      rime getCurrentSchema $rime_session_id rime_schema_id &&
+      rime getSchemaList $rime_schema_list
     autoload -Uz rime-complete &&
     zle -C rime-complete expand-or-complete rime-complete
     autoload -Uz rime-next-schema &&

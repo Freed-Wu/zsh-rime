@@ -18,7 +18,7 @@ A video can be found [here](https://asciinema.org/a/660633).
 # disable for android due to bug about build system
 zinit id-as depth'1' wait lucid \
   if'((($+commands[rime_deployer] || $+commands[nix]) && ! $+PREFIX))' \
-  atload'bindkey "^[^I" rime-get-context
+  atload'bindkey "^[^I" rime-complete
 bindkey "^[^N" rime-next-schema
 bindkey "^[^P" rime-previous-schema' \
   for Freed-Wu/zsh-rime
@@ -28,7 +28,7 @@ bindkey "^[^P" rime-previous-schema' \
 
 ```zsh
 source /the/path/of/*.plugin.zsh
-bindkey "^[^I" rime-get-context
+bindkey "^[^I" rime-complete
 bindkey "^[^N" rime-next-schema
 bindkey "^[^P" rime-previous-schema
 ```
@@ -57,8 +57,8 @@ zstyle -s ":plugin:rime" ldflags ldf || ldf="-L/usr/local/lib"
   )
   # ...
   function prompt_my_rime() {
-    if [[ -n $rime_schema_id ]]; then
-      p10k segment -bblack -fgreen -iㄓ -t$rime_schema_names[$rime_schema_ids[(I)$rime_schema_id]]
+    if [[ -n $rime_schema_id ]] && (( $#rime_schema_list )); then
+      p10k segment -bblack -fgreen -iㄓ -t$rime_schema_list[$rime_schema_id]
     fi
   }
   # ...

@@ -1,5 +1,11 @@
-local -i index=$rime_schema_ids[(I)$rime_schema_id]
-(( $index == 1 )) && index=$#rime_schema_ids || index-=1
-rime -s $rime_schema_ids[index]
+local schema_id last_schema_id
+for schema_id in ${(k)rime_schema_list} ${(k)rime_schema_list} ; do
+  if [[ $schema_id == $rime_schema_id && -n $last_schema_id ]]; then
+    break
+  fi
+  last_schema_id=$schema_id
+done
+rime selectSchema $rime_session_id $last_schema_id
+rime getCurrentSchema $rime_session_id
 
 # ex: filetype=zsh

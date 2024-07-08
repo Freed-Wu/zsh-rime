@@ -1,0 +1,9 @@
+local -i session_id=$1
+local key
+
+autoload -Uz rime-process-key &&
+  for key in ${(s//)2}; do
+    rime-process-key $session_id $key 0
+  done
+
+# ex: filetype=zsh

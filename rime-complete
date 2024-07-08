@@ -1,12 +1,27 @@
 local left=${LBUFFER##* }
 local input=${left##[^!-~]#}
 left=${left%%[\!-~]#}
-[[ -n $input ]] && rime $input || return
+[[ -n $input ]] &&
+  autoload -Uz rime-process-keys &&
+  rime-process-keys $rime_session_id $input ||
+  return
+
+rime getContext $rime_session_id context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
+local preedit="$context_composition[preedit]|"
+local -a candidates=($context_menu_candidates_text)
+while (( context_menu[is_last_page] == 0 )); do
+  rime-process-keys $rime_session_id =
+  rime getContext $rime_session_id context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
+  candidates+=($context_menu_candidates_text)
+done
+rime clearComposition $rime_session_id
+
 _rime_context() {
     # replace all characters to empty to skip filter of matcher
-    compadd -S '' -M "m:?=" -P "$left" -X "$rime_schema_id" -a rime_candidates
+    compadd -S '' -M "m:?=" -P "$left" -X "$preedit" -a candidates
 }
 _main_complete _rime_context
+unset context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
 unfunction _rime_context
 
 # ex: filetype=zsh
