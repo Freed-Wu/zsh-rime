@@ -39,6 +39,9 @@ if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
       zle -N rime-next-schema
     autoload -Uz rime-previous-schema &&
       zle -N rime-previous-schema
+
+    autoload -Uz rime-ime &&
+      zle -N rime-ime
 fi
 
 unset RIME_REPO_DIR

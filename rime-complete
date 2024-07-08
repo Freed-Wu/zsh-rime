@@ -7,7 +7,10 @@ left=${left%%[\!-~]#}
   return
 
 rime getContext $rime_session_id context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
-local preedit="$context_composition[preedit]|"
+local cursor
+zstyle -s ':rime:ui' cursor cursor ||
+  cursor='|'
+local preedit="$context_composition[preedit]$cursor"
 local -a candidates=($context_menu_candidates_text)
 while (( context_menu[is_last_page] == 0 )); do
   rime-process-keys $rime_session_id =

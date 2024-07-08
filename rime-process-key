@@ -1342,12 +1342,25 @@ local -a modifiers=(
   Release
   ''
 )
+
 # }}} data #
 
 local modifier keycode=$keys[$2]
 local -i session_id=$1 mask=0
-if [[ -z $keycode ]]; then
+if [[ -z "$keycode" ]]; then
   keycode="0x$(printf %x "'$2'")"
+  if (( $keycode == 0x7f )); then
+    keycode=$keys[BackSpace]
+  elif (( $keycode == 0x1b )); then
+    keycode=$keys[Escape]
+  elif (( $keycode == 0xd )); then
+    keycode=$keys[Return]
+  elif (( $keycode == 0x9 )); then
+    keycode=$keys[Tab]
+  elif (( $keycode < 0x20 )); then
+    keycode=$(( keycode + 0x60 ))
+    set -- "$@" Control
+  fi
 fi
 shift
 for modifier; do

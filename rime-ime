@@ -1,0 +1,110 @@
+autoload -Uz rime-process-key || return 1
+
+local indices left right left_sep right_sep cursor preedit
+local -i prompt_len
+zstyle -a ':rime:ui' indices indices ||
+  indices=(① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⓪)
+zstyle -s ':rime:ui' left left ||
+  left='<|'
+zstyle -s ':rime:ui' right right ||
+  right='|>'
+zstyle -s ':rime:ui' left-sep left_sep ||
+  left_sep='['
+zstyle -s ':rime:ui' right-sep right_sep ||
+  right_sep=']'
+zstyle -s ':rime:ui' cursor cursor ||
+  cursor='|'
+zstyle -s ':rime:ui' prompt-len prompt_len ||
+  prompt_len=2
+
+draw-ui() {
+  rime-process-key $rime_session_id "$@"
+  rime getContext $rime_session_id context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
+  if (( $#context_menu_candidates_text == 0 )) && rime commitComposition $rime_session_id; then
+    rime getCommit $rime_session_id commit
+    LBUFFER+=$commit[text]
+  fi
+  local -i ime_len=$(wc -L <<< $LBUFFER)
+  local ime_prefix=${(l:$ime_len:: :)}
+  local prompt_prefix=${(l:$prompt_len:: :)}
+  local cursor_pos="$(( context_composition[cursor_pos] + 1 ))"
+  preedit=$context_composition[preedit]
+  local text="$prompt_prefix$ime_prefix$preedit[0, cursor_pos - 1]$cursor$preedit[cursor_pos,-1]"
+  if (( context_menu[num_candidates] )); then
+    text+=$'\n'"$ime_prefix"
+    if (( context_menu[page_no] )); then
+      text+=$left
+    else
+      text+=$prompt_prefix
+    fi
+    local highlighted_candidate_index=$(( context_menu[highlighted_candidate_index] + 1 ))
+    local -i i
+    for i in {1..$context_menu[num_candidates]}; do
+      if (( highlighted_candidate_index == i )); then
+	text+=$left_sep
+      elif (( highlighted_candidate_index + 1 == i )); then
+	text+=$right_sep
+      else
+	text+=' '
+      fi
+      text+="$indices[i] $context_menu_candidates_text[i]"
+      if [[ -n $context_menu_candidates_comment[i] ]]; then
+	text+=" $context_menu_candidates_comment[i]"
+      fi
+    done
+    if (( highlighted_candidate_index == context_menu[num_candidates] )); then
+      text+=$right_sep
+    else
+      text+=' '
+    fi
+    if (( context_menu[is_last_page] == 0 )); then
+      text+=$right
+    fi
+  fi
+  zle -M -- $text
+  unset context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
+}
+
+self-insert() {
+  draw-ui $KEYS
+}
+
+draw-ui-when-preedit() {
+  if [[ -n $preedit ]]; then
+    draw-ui $KEYS
+  elif [[ $KEYS == ' ' ]]; then
+    # FIXME: autopair-insert cannot work
+    LBUFFER+=' '
+  else
+    zle ${"$(bindkey -M main "$KEYS")"##* }
+  fi
+}
+
+zle -N self-insert
+zle -A rime-ime save-rime-ime
+zle -A accept-line rime-ime
+
+bindkey -N rime main
+zle -N draw-ui-when-preedit
+bindkey -M rime ' ' draw-ui-when-preedit
+local char
+for char in '?' @ _ ^ '[' {A..Z} ; do
+  bindkey -M rime "^$char" draw-ui-when-preedit
+done
+
+zle recursive-edit -K rime
+
+zle -M ''
+integer stat=$?
+
+zle -A .self-insert self-insert
+zle -A save-rime-ime rime-ime
+zle -D save-rime-ime
+
+unfunction self-insert draw-ui draw-ui-when-preedit
+
+(( stat )) && zle send-break
+
+return $stat
+
+# ex: filetype=zsh
