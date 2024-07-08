@@ -24,5 +24,5 @@ jobs:
       - name: Build
         run: |
           cd module
-          ./configure
+          ./configure --without-tcsetpgrp
           make
