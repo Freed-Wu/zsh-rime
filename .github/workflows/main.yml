@@ -22,6 +22,8 @@ jobs:
           sudo apt-get -y update
           sudo apt-get -y install librime-dev
       - name: Build
+        # configure: error: no controlling tty
+        # Try running configure with --with-tcsetpgrp or --without-tcsetpgrp
         run: |
           cd module
           ./configure --without-tcsetpgrp
