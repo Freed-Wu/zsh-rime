@@ -1,0 +1,71 @@
+#compdef rime
+local subcommands=(
+  init
+  createSession
+  destroySession
+  getCurrentSchema
+  getSchemaList
+  selectSchema
+  processKey
+  getContext
+  getCommit
+  commitComposition
+  clearComposition
+)
+
+_arguments -s -S \
+  ": :(($subcommands))" \
+        '*:: :->option-or-argument'
+
+if [[ $state != option-or-argument ]]; then
+  return
+fi
+local curcontext=${curcontext%:*:*}:rime-$words[1]:
+case $words[1] in
+createSession)
+  _arguments -s -S \
+    ':session_id'
+  ;;
+destroySession)
+  _arguments -s -S \
+    ":\$session_id"
+  ;;
+getCurrentSchema)
+  _arguments -s -S \
+    ":\$session_id" \
+    ':schema_id'
+  ;;
+getSchemaList)
+  _arguments -s -S \
+    ':schema_list'
+  ;;
+selectSchema)
+  _arguments -s -S \
+    ":\$session_id" \
+    ":\$schema_id"
+  ;;
+processKey)
+  _arguments -s -S \
+    ":\$session_id" \
+    ":\$keycode" \
+    ":\$mask"
+  ;;
+getContext)
+  _arguments -s -S \
+    ":\$session_id" \
+    ':preedit'
+  ;;
+getCommit)
+  _arguments -s -S \
+    ":\$session_id" \
+    ':commit_text'
+  ;;
+commitComposition)
+  _arguments -s -S \
+    ":\$session_id"
+  ;;
+clearComposition)
+  _arguments -s -S \
+    ":\$session_id"
+  ;;
+esac
