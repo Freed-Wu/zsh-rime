@@ -16,7 +16,7 @@ A video can be found [here](https://asciinema.org/a/660633).
 
 ```zsh
 zinit id-as depth'1' wait lucid \
-  if'pkg-config --libs rime || (( $+commands[nix] ))' \
+  if'pkg-config --libs rime &>/dev/null || (( $+commands[nix] ))' \
   atload'bindkey "^[^I" rime-complete
 bindkey "^[^N" rime-next-schema
 bindkey "^[^P" rime-previous-schema' \
