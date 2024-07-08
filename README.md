@@ -15,9 +15,8 @@ A video can be found [here](https://asciinema.org/a/660633).
 ### [zinit](https://github.com/zdharma-continuum/zinit/)
 
 ```zsh
-# disable for android due to bug about build system
 zinit id-as depth'1' wait lucid \
-  if'((($+commands[rime_deployer] || $+commands[nix]) && ! $+PREFIX))' \
+  if'pkg-config --libs rime || (( $+commands[nix] ))' \
   atload'bindkey "^[^I" rime-complete
 bindkey "^[^N" rime-next-schema
 bindkey "^[^P" rime-previous-schema' \
