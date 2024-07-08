@@ -36,19 +36,25 @@
 #else
 #include "patchlevel.h"
 
+#include <math.h>
+
 /* If removed from the ChangeLog for some reason */
 #ifndef ZSH_PATCHLEVEL
 #define ZSH_PATCHLEVEL "unknown"
 #endif
 #endif
 
-/* what level of localness we are at */
-
+/* What level of localness we are at.
+ *
+ * Hand-wavingly, this is incremented at every function call and decremented
+ * at every function return.  See startparamscope().
+ */
+ 
 /**/
 mod_export int locallevel;
 
 /* Variables holding values of special parameters */
-
+ 
 /**/
 mod_export
 char **pparams,		/* $argv        */
@@ -57,13 +63,12 @@ char **pparams,		/* $argv        */
      **mailpath,	/* $mailpath    */
      **manpath,		/* $manpath     */
      **psvar,		/* $psvar       */
-     **watch,		/* $watch       */
      **zsh_eval_context; /* $zsh_eval_context */
 /**/
 mod_export
 char **path,		/* $path        */
      **fignore;		/* $fignore     */
-
+ 
 /**/
 mod_export
 char *argzero,		/* $0           */
@@ -92,8 +97,10 @@ char *ifs,		/* $IFS         */
      *pwd;		/* $PWD         */
 
 /**/
-mod_export
-zlong lastval,		/* $?           */
+mod_export volatile zlong
+     lastval;		/* $?           */
+/**/
+mod_export zlong
      mypid,		/* $$           */
      lastpid,		/* $!           */
      zterm_columns,	/* $COLUMNS     */
@@ -101,13 +108,26 @@ zlong lastval,		/* $?           */
      rprompt_indent,	/* $ZLE_RPROMPT_INDENT */
      ppid,		/* $PPID        */
      zsh_subshell;	/* $ZSH_SUBSHELL */
+
+/* $FUNCNEST    */
+/**/
+mod_export
+zlong zsh_funcnest =
+#ifdef MAX_FUNCTION_DEPTH
+    MAX_FUNCTION_DEPTH
+#else
+    /* Disabled by default but can be enabled at run time */
+    -1
+#endif
+    ;
+
 /**/
 zlong lineno,		/* $LINENO      */
      zoptind,		/* $OPTIND      */
      shlvl;		/* $SHLVL       */
 
 /* $histchars */
-
+ 
 /**/
 mod_export unsigned char bangchar;
 /**/
@@ -115,14 +135,14 @@ unsigned char hatchar, hashchar;
 
 /**/
 unsigned char keyboardhackchar = '\0';
-
+ 
 /* $SECONDS = now.tv_sec - shtimer.tv_sec
  *          + (now.tv_usec - shtimer.tv_usec) / 1000000.0
  * (rounded to an integer if the parameter is not set to float) */
-
+ 
 /**/
 struct timeval shtimer;
-
+ 
 /* 0 if this $TERM setup is usable, otherwise it contains TERM_* flags */
 
 /**/
@@ -172,6 +192,10 @@ mod_export const struct gsu_hash stdhash_gsu =
 /**/
 mod_export const struct gsu_hash nullsethash_gsu =
 { hashgetfn, nullsethashfn, nullunsetfn };
+
+/**/
+mod_export const struct gsu_scalar colonarr_gsu =
+{ colonarrgetfn, colonarrsetfn, stdunsetfn };
 
 
 /* Non standard methods (not exported) */
@@ -238,9 +262,6 @@ static const struct gsu_integer varint_readonly_gsu =
 static const struct gsu_integer zlevar_gsu =
 { intvargetfn, zlevarsetfn, stdunsetfn };
 
-static const struct gsu_scalar colonarr_gsu =
-{ colonarrgetfn, colonarrsetfn, stdunsetfn };
-
 static const struct gsu_integer argc_gsu =
 { poundgetfn, nullintsetfn, stdunsetfn };
 static const struct gsu_array pipestatus_gsu =
@@ -275,7 +296,7 @@ static initparam special_params[] ={
 #define GSU(X) BR((GsuScalar)(void *)(&(X)))
 #define NULL_GSU BR((GsuScalar)(void *)NULL)
 #define IPDEF1(A,B,C) {{NULL,A,PM_INTEGER|PM_SPECIAL|C},BR(NULL),GSU(B),10,0,NULL,NULL,NULL,0}
-IPDEF1("#", pound_gsu, PM_READONLY),
+IPDEF1("#", pound_gsu, PM_READONLY_SPECIAL),
 IPDEF1("ERRNO", errno_gsu, PM_UNSET),
 IPDEF1("GID", gid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
 IPDEF1("EGID", egid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
@@ -285,11 +306,11 @@ IPDEF1("SAVEHIST", savehist_gsu, PM_RESTRICTED),
 IPDEF1("SECONDS", intseconds_gsu, 0),
 IPDEF1("UID", uid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
 IPDEF1("EUID", euid_gsu, PM_DONTIMPORT | PM_RESTRICTED),
-IPDEF1("TTYIDLE", ttyidle_gsu, PM_READONLY),
+IPDEF1("TTYIDLE", ttyidle_gsu, PM_READONLY_SPECIAL),
 
 #define IPDEF2(A,B,C) {{NULL,A,PM_SCALAR|PM_SPECIAL|C},BR(NULL),GSU(B),0,0,NULL,NULL,NULL,0}
 IPDEF2("USERNAME", username_gsu, PM_DONTIMPORT|PM_RESTRICTED),
-IPDEF2("-", dash_gsu, PM_READONLY),
+IPDEF2("-", dash_gsu, PM_READONLY_SPECIAL),
 IPDEF2("histchars", histchars_gsu, PM_DONTIMPORT),
 IPDEF2("HOME", home_gsu, PM_UNSET),
 IPDEF2("TERM", term_gsu, PM_UNSET),
@@ -322,7 +343,7 @@ LCIPDEF("LC_TIME"),
 # endif
 #endif /* USE_LOCALE */
 
-#define IPDEF4(A,B) {{NULL,A,PM_INTEGER|PM_READONLY|PM_SPECIAL},BR((void *)B),GSU(varint_readonly_gsu),10,0,NULL,NULL,NULL,0}
+#define IPDEF4(A,B) {{NULL,A,PM_INTEGER|PM_READONLY_SPECIAL},BR((void *)B),GSU(varint_readonly_gsu),10,0,NULL,NULL,NULL,0}
 IPDEF4("!", &lastpid),
 IPDEF4("$", &mypid),
 IPDEF4("?", &lastval),
@@ -337,6 +358,7 @@ IPDEF5("COLUMNS", &zterm_columns, zlevar_gsu),
 IPDEF5("LINES", &zterm_lines, zlevar_gsu),
 IPDEF5U("ZLE_RPROMPT_INDENT", &rprompt_indent, rprompt_indent_gsu),
 IPDEF5("SHLVL", &shlvl, varinteger_gsu),
+IPDEF5("FUNCNEST", &zsh_funcnest, varinteger_gsu),
 
 /* Don't import internal integer status variables. */
 #define IPDEF6(A,B,F) {{NULL,A,PM_INTEGER|PM_SPECIAL|PM_DONTIMPORT},BR((void *)B),GSU(F),10,0,NULL,NULL,NULL,0}
@@ -361,10 +383,9 @@ IPDEF7("PS3", &prompt3),
 IPDEF7R("PS4", &prompt4),
 IPDEF7("SPROMPT", &sprompt),
 
-#define IPDEF9F(A,B,C,D) {{NULL,A,D|PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT},BR((void *)B),GSU(vararray_gsu),0,0,NULL,C,NULL,0}
-#define IPDEF9(A,B,C) IPDEF9F(A,B,C,0)
-IPDEF9F("*", &pparams, NULL, PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT|PM_READONLY),
-IPDEF9F("@", &pparams, NULL, PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT|PM_READONLY),
+#define IPDEF9(A,B,C,D) {{NULL,A,D|PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT},BR((void *)B),GSU(vararray_gsu),0,0,NULL,C,NULL,0}
+IPDEF9("*", &pparams, NULL, PM_ARRAY|PM_READONLY_SPECIAL|PM_DONTIMPORT),
+IPDEF9("@", &pparams, NULL, PM_ARRAY|PM_READONLY_SPECIAL|PM_DONTIMPORT),
 
 /*
  * This empty row indicates the end of parameters available in
@@ -373,17 +394,16 @@ IPDEF9F("@", &pparams, NULL, PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT|PM_READONLY),
 {{NULL,NULL,0},BR(NULL),NULL_GSU,0,0,NULL,NULL,NULL,0},
 
 #define IPDEF8(A,B,C,D) {{NULL,A,D|PM_SCALAR|PM_SPECIAL},BR((void *)B),GSU(colonarr_gsu),0,0,NULL,C,NULL,0}
-IPDEF8("CDPATH", &cdpath, "cdpath", 0),
-IPDEF8("FIGNORE", &fignore, "fignore", 0),
-IPDEF8("FPATH", &fpath, "fpath", 0),
-IPDEF8("MAILPATH", &mailpath, "mailpath", 0),
-IPDEF8("WATCH", &watch, "watch", 0),
-IPDEF8("PATH", &path, "path", PM_RESTRICTED),
-IPDEF8("PSVAR", &psvar, "psvar", 0),
-IPDEF8("ZSH_EVAL_CONTEXT", &zsh_eval_context, "zsh_eval_context", PM_READONLY),
+IPDEF8("CDPATH", &cdpath, "cdpath", PM_TIED),
+IPDEF8("FIGNORE", &fignore, "fignore", PM_TIED),
+IPDEF8("FPATH", &fpath, "fpath", PM_TIED),
+IPDEF8("MAILPATH", &mailpath, "mailpath", PM_TIED),
+IPDEF8("PATH", &path, "path", PM_RESTRICTED|PM_TIED),
+IPDEF8("PSVAR", &psvar, "psvar", PM_TIED),
+IPDEF8("ZSH_EVAL_CONTEXT", &zsh_eval_context, "zsh_eval_context", PM_READONLY_SPECIAL|PM_TIED),
 
 /* MODULE_PATH is not imported for security reasons */
-IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_RESTRICTED),
+IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_RESTRICTED|PM_TIED),
 
 #define IPDEF10(A,B) {{NULL,A,PM_ARRAY|PM_SPECIAL},BR(NULL),GSU(B),10,0,NULL,NULL,NULL,0}
 
@@ -393,7 +413,7 @@ IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_RESTRICTED),
  */
 
 /* All of these have sh compatible equivalents.                */
-IPDEF1("ARGC", argc_gsu, PM_READONLY),
+IPDEF1("ARGC", argc_gsu, PM_READONLY_SPECIAL),
 IPDEF2("HISTCHARS", histchars_gsu, PM_DONTIMPORT),
 IPDEF4("status", &lastval),
 IPDEF7("prompt", &prompt),
@@ -401,20 +421,19 @@ IPDEF7("PROMPT", &prompt),
 IPDEF7("PROMPT2", &prompt2),
 IPDEF7("PROMPT3", &prompt3),
 IPDEF7("PROMPT4", &prompt4),
-IPDEF8("MANPATH", &manpath, "manpath", 0),
-IPDEF9("argv", &pparams, NULL),
-IPDEF9("fignore", &fignore, "FIGNORE"),
-IPDEF9("cdpath", &cdpath, "CDPATH"),
-IPDEF9("fpath", &fpath, "FPATH"),
-IPDEF9("mailpath", &mailpath, "MAILPATH"),
-IPDEF9("manpath", &manpath, "MANPATH"),
-IPDEF9("psvar", &psvar, "PSVAR"),
-IPDEF9("watch", &watch, "WATCH"),
+IPDEF8("MANPATH", &manpath, "manpath", PM_TIED),
+IPDEF9("argv", &pparams, NULL, 0),
+IPDEF9("fignore", &fignore, "FIGNORE", PM_TIED),
+IPDEF9("cdpath", &cdpath, "CDPATH", PM_TIED),
+IPDEF9("fpath", &fpath, "FPATH", PM_TIED),
+IPDEF9("mailpath", &mailpath, "MAILPATH", PM_TIED),
+IPDEF9("manpath", &manpath, "MANPATH", PM_TIED),
+IPDEF9("psvar", &psvar, "PSVAR", PM_TIED),
 
-IPDEF9F("zsh_eval_context", &zsh_eval_context, "ZSH_EVAL_CONTEXT", PM_READONLY),
+IPDEF9("zsh_eval_context", &zsh_eval_context, "ZSH_EVAL_CONTEXT", PM_TIED|PM_READONLY_SPECIAL),
 
-IPDEF9F("module_path", &module_path, "MODULE_PATH", PM_RESTRICTED),
-IPDEF9F("path", &path, "PATH", PM_RESTRICTED),
+IPDEF9("module_path", &module_path, "MODULE_PATH", PM_TIED|PM_RESTRICTED),
+IPDEF9("path", &path, "PATH", PM_TIED|PM_RESTRICTED),
 
 /* These are known to zsh alone. */
 
@@ -432,10 +451,9 @@ IPDEF8("CDPATH", &cdpath, NULL, 0),
 IPDEF8("FIGNORE", &fignore, NULL, 0),
 IPDEF8("FPATH", &fpath, NULL, 0),
 IPDEF8("MAILPATH", &mailpath, NULL, 0),
-IPDEF8("WATCH", &watch, NULL, 0),
 IPDEF8("PATH", &path, NULL, PM_RESTRICTED),
 IPDEF8("PSVAR", &psvar, NULL, 0),
-IPDEF8("ZSH_EVAL_CONTEXT", &zsh_eval_context, NULL, PM_READONLY),
+IPDEF8("ZSH_EVAL_CONTEXT", &zsh_eval_context, NULL, PM_READONLY_SPECIAL),
 
 /* MODULE_PATH is not imported for security reasons */
 IPDEF8("MODULE_PATH", &module_path, NULL, PM_DONTIMPORT|PM_RESTRICTED),
@@ -448,7 +466,7 @@ IPDEF8("MODULE_PATH", &module_path, NULL, PM_DONTIMPORT|PM_RESTRICTED),
  * and $@, this is not readonly.  This parameter is not directly
  * visible in user space.
  */
-static initparam argvparam_pm = IPDEF9F("", &pparams, NULL, \
+static initparam argvparam_pm = IPDEF9("", &pparams, NULL, \
 				 PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT);
 
 #undef BR
@@ -459,8 +477,14 @@ static initparam argvparam_pm = IPDEF9F("", &pparams, NULL, \
 
 static Param argvparam;
 
-/* hash table containing the parameters */
-
+/* "parameter table" - hash table containing the parameters
+ *
+ * realparamtab always points to the shell's global table.  paramtab is sometimes
+ * temporarily changed to point at another table, while dealing with the keys
+ * of an associative array (for example, see makecompparams() which initializes
+ * the associative array ${compstate}).
+ */
+ 
 /**/
 mod_export HashTable paramtab, realparamtab;
 
@@ -535,10 +559,13 @@ scancopyparams(HashNode hn, UNUSED(int flags))
 HashTable
 copyparamtable(HashTable ht, char *name)
 {
-    HashTable nht = newparamtable(ht->hsize, name);
-    outtable = nht;
-    scanhashtable(ht, 0, 0, 0, scancopyparams, 0);
-    outtable = NULL;
+    HashTable nht = 0;
+    if (ht) {
+	nht = newparamtable(ht->hsize, name);
+	outtable = nht;
+	scanhashtable(ht, 0, 0, 0, scancopyparams, 0);
+	outtable = NULL;
+    }
     return nht;
 }
 
@@ -705,7 +732,7 @@ split_env_string(char *env, char **name, char **value)
 
     tenv = strcpy(zhalloc(strlen(env) + 1), env);
     for (str = tenv; *str && *str != '='; str++) {
-	if (STOUC(*str) >= 128) {
+	if ((unsigned char) *str >= 128) {
 	    /*
 	     * We'll ignore environment variables with names not
 	     * from the portable character set since we don't
@@ -731,7 +758,7 @@ split_env_string(char *env, char **name, char **value)
  */
 static int dontimport(int flags)
 {
-    /* If explicitly marked as don't export */
+    /* If explicitly marked as don't import */
     if (flags & PM_DONTIMPORT)
 	return 1;
     /* If value already exported */
@@ -791,7 +818,6 @@ createparamtable(void)
      * given them in the environment.                           */
     opts[ALLEXPORT] = 0;
     setiparam("MAILCHECK", 60);
-    setiparam("LOGCHECK", 60);
     setiparam("KEYTIMEOUT", 40);
     setiparam("LISTMAX", 100);
     /*
@@ -806,16 +832,18 @@ createparamtable(void)
      */
     setsparam("TMPPREFIX", ztrdup_metafy(DEFAULT_TMPPREFIX));
     setsparam("TIMEFMT", ztrdup_metafy(DEFAULT_TIMEFMT));
-    setsparam("WATCHFMT", ztrdup_metafy(default_watchfmt));
 
     hostnam = (char *)zalloc(256);
     gethostname(hostnam, 256);
     setsparam("HOST", ztrdup_metafy(hostnam));
     zfree(hostnam, 256);
 
-    setsparam("LOGNAME",
-	      ztrdup_metafy((str = getlogin()) && *str ?
-			    str : cached_username));
+    setsparam("LOGNAME", ztrdup_metafy(
+#ifndef DISABLE_DYNAMIC_NSS
+			(str = getlogin()) && *str ?  str :
+#endif
+				cached_username
+			));
 
 #if !defined(HAVE_PUTENV) && !defined(USE_SET_UNSET_ENV)
     /* Copy the environment variables we are inheriting to dynamic *
@@ -834,7 +862,7 @@ createparamtable(void)
      * memory so that we can free them if needed               */
     for (
 #ifndef USE_SET_UNSET_ENV
-	envp =
+	envp = 
 #endif
 	    envp2 = environ; *envp2; envp2++) {
 	if (split_env_string(*envp2, &iname, &ivalue)) {
@@ -980,6 +1008,11 @@ createparam(char *name, int flags)
 		(oldpm->node.flags & PM_SPECIAL) ||
 		/* POSIXBUILTINS horror: we need to retain 'export' flags */
 		(isset(POSIXBUILTINS) && (oldpm->node.flags & PM_EXPORTED))) {
+		if (oldpm->node.flags & PM_RO_BY_DESIGN) {
+		    zerr("%s: can't change parameter attribute",
+			 name);
+		    return NULL;
+		}
 		oldpm->node.flags &= ~PM_UNSET;
 		if ((oldpm->node.flags & PM_SPECIAL) && oldpm->ename) {
 		    Param altpm =
@@ -1106,8 +1139,10 @@ copyparam(Param tpm, Param pm, int fakecopy)
     tpm->base = pm->base;
     tpm->width = pm->width;
     tpm->level = pm->level;
-    if (!fakecopy)
+    if (!fakecopy) {
+	tpm->old = pm->old;
 	tpm->node.flags &= ~PM_SPECIAL;
+    }
     switch (PM_TYPE(pm->node.flags)) {
     case PM_SCALAR:
 	tpm->u.str = ztrdup(pm->gsu.s->getfn(pm));
@@ -1204,7 +1239,7 @@ isident(char *s)
 /**/
 static zlong
 getarg(char **str, int *inv, Value v, int a2, zlong *w,
-       int *prevcharlen, int *nextcharlen)
+       int *prevcharlen, int *nextcharlen, int flags)
 {
     int hasbeg = 0, word = 0, rev = 0, ind = 0, down = 0, l, i, ishash;
     int keymatch = 0, needtok = 0, arglen, len, inpar = 0;
@@ -1227,7 +1262,6 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
     /* first parse any subscription flags */
     if (v->pm && (*s == '(' || *s == Inpar)) {
 	int escapes = 0;
-	int waste;
 	for (s++; *s != ')' && *s != Outpar && s != *str; s++) {
 	    switch (*s) {
 	    case 'r':
@@ -1304,8 +1338,13 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 		sav = *t;
 		*t = '\0';
 		s += arglen;
-		sep = escapes ? getkeystring(s, &waste, GETKEYS_SEP, NULL)
-		    : dupstring(s);
+		if (escapes) {
+		    int len;
+		    sep = getkeystring(s, &len, GETKEYS_SEP, NULL);
+		    sep = metafy(sep, len, META_HREALLOC);
+		}
+		else
+		    sep = dupstring(s);
 		*t = sav;
 		s = t + arglen - 1;
 		break;
@@ -1407,6 +1446,8 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 	if (ishash) {
 	    HashTable ht = v->pm->gsu.h->getfn(v->pm);
 	    if (!ht) {
+		if (flags & SCANPM_CHECKING)
+		    return 0;
 		ht = newparamtable(17, v->pm->node.nam);
 		v->pm->gsu.h->setfn(v->pm, ht);
 	    }
@@ -1494,7 +1535,7 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 	    }
 	}
     } else {
-	if (!v->isarr && !word) {
+	if (!v->isarr && !word && !quote_arg) {
 	    l = strlen(s);
 	    if (a2) {
 		if (!l || *s != '*') {
@@ -1513,9 +1554,23 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 	    }
 	}
 	if (!keymatch) {
-	    if (quote_arg)
+	    if (quote_arg) {
 		untokenize(s);
-	    else
+		/* Scalar (e) needs implicit asterisk tokens */
+		if (!v->isarr && !word) {
+		    l = strlen(s);
+		    d = (char *) hcalloc(l + 2);
+		    if (a2) {
+			*d = Star;
+			strcpy(d + 1, s);
+		    } else {
+			strcpy(d, s);
+			d[l] = Star;
+			d[l + 1] = '\0';
+		    }
+		    s = d;
+		}
+	    } else
 		tokenize(s);
 	    remnulargs(s);
 	    pprog = patcompile(s, 0, NULL);
@@ -1848,7 +1903,8 @@ getindex(char **pptr, Value v, int flags)
 	zlong we = 0, dummy;
 	int startprevlen, startnextlen;
 
-	start = getarg(&s, &inv, v, 0, &we, &startprevlen, &startnextlen);
+	start = getarg(&s, &inv, v, 0, &we, &startprevlen, &startnextlen,
+		       flags);
 
 	if (inv) {
 	    if (!v->isarr && start != 0) {
@@ -1922,7 +1978,7 @@ getindex(char **pptr, Value v, int flags)
 
 	    if ((com = (*s == ','))) {
 		s++;
-		end = getarg(&s, &inv, v, 1, &dummy, NULL, NULL);
+		end = getarg(&s, &inv, v, 1, &dummy, NULL, NULL, flags);
 	    } else {
 		end = we ? we : start;
 	    }
@@ -2046,7 +2102,8 @@ fetchvalue(Value v, char **pptr, int bracks, int flags)
 	if (sav)
 	    *s = sav;
 	*pptr = s;
-	if (!pm || (pm->node.flags & PM_UNSET))
+	if (!pm || ((pm->node.flags & PM_UNSET) &&
+		    !(pm->node.flags & PM_DECLARED)))
 	    return NULL;
 	if (v)
 	    memset(v, 0, sizeof(*v));
@@ -2166,10 +2223,10 @@ getstrvalue(Value v)
 
     if (v->flags & VALFLAG_SUBST) {
 	if (v->pm->node.flags & (PM_LEFT|PM_RIGHT_B|PM_RIGHT_Z)) {
-	    unsigned int fwidth = v->pm->width ? v->pm->width : MB_METASTRLEN(s);
+	    size_t fwidth = v->pm->width ? (unsigned int)v->pm->width : MB_METASTRLEN(s);
 	    switch (v->pm->node.flags & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z)) {
 		char *t, *tend;
-		unsigned int t0;
+		size_t t0;
 
 	    case PM_LEFT:
 	    case PM_LEFT | PM_RIGHT_Z:
@@ -2258,7 +2315,7 @@ getstrvalue(Value v)
 			t = (char *) hcalloc(fwidth + t0 + 1);
 			/* prefix guaranteed to be single byte chars */
 			preflen = valprefend - s;
-			memset(t + preflen,
+			memset(t + preflen, 
 			       (((v->pm->node.flags & PM_RIGHT_B)
 				 || !zero) ?       ' ' : '0'), fwidth);
 			/*
@@ -2550,7 +2607,7 @@ assignstrvalue(Value v, char *val, int flags)
 		Param pm = v->pm;
                 /* Size doesn't change, can limit actions to only
                  * overwriting bytes in already allocated string */
-                strncpy(z + v->start, val, vlen);
+		memcpy(z + v->start, val, vlen);
 		/* Implement remainder of strsetfn */
 		if (!(pm->node.flags & PM_HASHELEM) &&
 		    ((pm->node.flags & PM_NAMEDDIR) ||
@@ -2704,7 +2761,7 @@ setarrvalue(Value v, char **val)
 	    v->pm->gsu.a->setfn(v->pm, val);
     } else if (v->start == -1 && v->end == 0 &&
     	    PM_TYPE(v->pm->node.flags) == PM_HASHED) {
-    	arrhashsetfn(v->pm, val, 1);
+    	arrhashsetfn(v->pm, val, ASSPM_AUGMENT);
     } else if ((PM_TYPE(v->pm->node.flags) == PM_HASHED)) {
 	freearray(val);
 	zerr("%s: attempt to set slice of associative array",
@@ -2740,7 +2797,7 @@ setarrvalue(Value v, char **val)
 
 	post_assignment_length = v->start + arrlen(val);
 	if (v->end < pre_assignment_length) {
-	    /*
+	    /* 
 	     * Allocate room for array elements between the end of the slice `v'
 	     * and the original array's end.
 	     */
@@ -3008,6 +3065,7 @@ assignsparam(char *s, char *val, int flags)
 	     * Don't warn about anything.
 	     */
 	    flags &= ~ASSPM_WARN;
+	    v->pm->node.flags &= ~PM_DEFAULTED;
 	}
 	*ss = '[';
 	v = NULL;
@@ -3017,7 +3075,7 @@ assignsparam(char *s, char *val, int flags)
 	    created = 1;
 	} else if ((((v->pm->node.flags & PM_ARRAY) && !(flags & ASSPM_AUGMENT)) ||
 	    	 (v->pm->node.flags & PM_HASHED)) &&
-		 !(v->pm->node.flags & (PM_SPECIAL|PM_TIED)) &&
+		 !(v->pm->node.flags & (PM_SPECIAL|PM_TIED)) && 
 		 unset(KSHARRAYS)) {
 	    unsetparam(t);
 	    createparam(t, PM_SCALAR);
@@ -3033,6 +3091,7 @@ assignsparam(char *s, char *val, int flags)
     }
     if (flags & ASSPM_WARN)
 	check_warn_pm(v->pm, "scalar", created, 1);
+    v->pm->node.flags &= ~PM_DEFAULTED;
     if (flags & ASSPM_AUGMENT) {
 	if (v->start == 0 && v->end == -1) {
 	    switch (PM_TYPE(v->pm->node.flags)) {
@@ -3185,6 +3244,143 @@ assignaparam(char *s, char **val, int flags)
 
     if (flags & ASSPM_WARN)
 	check_warn_pm(v->pm, "array", created, may_warn_about_nested_vars);
+    v->pm->node.flags &= ~PM_DEFAULTED;
+
+    /*
+     * At this point, we may have array entries consisting of
+     * - a Marker element --- normally allocated array entry but
+     *   with just Marker char and null
+     * - an array index element --- as normal for associative array,
+     *   but non-standard for normal array which we handle now.
+     * - a value for the indexed element.
+     * This only applies if the flag ASSPM_KEY_VALUE is passed in,
+     * indicating prefork() detected this syntax.
+     *
+     * For associative arrays we just junk the Marker elements.
+     */
+    if (flags & ASSPM_KEY_VALUE) {
+	char **aptr;
+	if (PM_TYPE(v->pm->node.flags) & PM_ARRAY) {
+	    /*
+	     * This is an ordinary array with key / value pairs.
+	     */
+	    int maxlen, origlen, nextind;
+	    char **fullval, **origptr;
+	    zlong *subscripts = (zlong *)zhalloc(arrlen(val) * sizeof(zlong));
+	    zlong *iptr = subscripts;
+	    if (flags & ASSPM_AUGMENT) {
+		origptr = v->pm->gsu.a->getfn(v->pm);
+		maxlen = origlen = arrlen(origptr);
+	    } else {
+		maxlen = origlen = 0;
+		origptr = NULL;
+	    }
+	    nextind = 0;
+	    for (aptr = val; *aptr; ) {
+		if (**aptr == Marker) {
+		    *iptr = mathevali(*++aptr);
+		    if (*iptr < 0 ||
+			(!isset(KSHARRAYS) && *iptr == 0)) {
+			unqueue_signals();
+			zerr("bad subscript for direct array assignment: %s", *aptr);
+			freearray(val);
+			return NULL;
+		    }
+		    if (!isset(KSHARRAYS))
+			--*iptr;
+		    nextind = *iptr + 1;
+		    ++iptr;
+		    aptr += 2;
+		} else {
+		    ++nextind;
+		    ++aptr;
+		}
+		if (nextind > maxlen)
+		    maxlen = nextind;
+	    }
+	    fullval = zshcalloc((maxlen+1) * sizeof(char *));
+	    if (!fullval) {
+		zerr("array too large");
+		freearray(val);
+		return NULL;
+	    }
+	    fullval[maxlen] = NULL;
+	    if (flags & ASSPM_AUGMENT) {
+		char **srcptr = origptr;
+		for (aptr = fullval; aptr <= fullval + origlen; aptr++) {
+		    *aptr = ztrdup(*srcptr);
+		    srcptr++;
+		}
+	    }
+	    iptr = subscripts;
+	    nextind = 0;
+	    for (aptr = val; *aptr; ++aptr) {
+		char *old;
+		if (**aptr == Marker) {
+		    int augment = ((*aptr)[1] == '+');
+		    zsfree(*aptr);
+		    zsfree(*++aptr); /* Index, no longer needed */
+		    old = fullval[*iptr];
+		    if (augment && old) {
+			fullval[*iptr] = bicat(old, *++aptr);
+			zsfree(*aptr);
+		    } else {
+			fullval[*iptr] = *++aptr;
+		    }
+		    nextind = *iptr + 1;
+		    ++iptr;
+		} else {
+		    old = fullval[nextind];
+		    fullval[nextind] = *aptr;
+		    ++nextind;
+		}
+		if (old)
+		    zsfree(old);
+		/* aptr now on value in both cases */
+	    }
+	    if (*aptr) {		/* Shouldn't be possible */
+		DPUTS(1, "Extra element in key / value array");
+		zsfree(*aptr);
+	    }
+	    free(val);
+	    for (aptr = fullval; aptr < fullval + maxlen; aptr++) {
+		/*
+		 * Remember we don't have sparse arrays but and they're null
+		 * terminated --- so any value we don't set has to be an
+		 * empty string.
+		 */
+		if (!*aptr)
+		    *aptr = ztrdup("");
+	    }
+	    setarrvalue(v, fullval);
+	    unqueue_signals();
+	    return v->pm;
+	} else if (PM_TYPE(v->pm->node.flags & PM_HASHED)) {
+	    /*
+	     * We strictly enforce [key]=value syntax for associative
+	     * arrays.  Marker can only indicate a Marker / key / value
+	     * triad; it cannot be there by accident.
+	     *
+	     * It's too inefficient to strip Markers here, and they
+	     * can't be there in the other form --- so just ignore
+	     * them willy nilly lower down.
+	     */
+	    for (aptr = val; *aptr; aptr += 3) {
+		if (**aptr != Marker) {
+		    unqueue_signals();
+		    freearray(val);
+		    zerr("bad [key]=value syntax for associative array");
+		    return NULL;
+		}
+	    }
+	} else {
+	    unqueue_signals();
+	    freearray(val);
+	    zerr("invalid use of [key]=value assignment syntax");
+	    return NULL;
+	}
+    }
+
     if (flags & ASSPM_AUGMENT) {
     	if (v->start == 0 && v->end == -1) {
 	    if (PM_TYPE(v->pm->node.flags) & PM_ARRAY) {
@@ -3242,12 +3438,17 @@ sethparam(char *s, char **val)
     if (!(v = fetchvalue(&vbuf, &s, 1, SCANPM_ASSIGNING))) {
 	createparam(t, PM_HASHED);
 	checkcreate = 1;
-    } else if (!(PM_TYPE(v->pm->node.flags) & PM_HASHED) &&
-	     !(v->pm->node.flags & PM_SPECIAL)) {
-	unsetparam(t);
-	/* no WARNCREATEGLOBAL check here as parameter already existed */
-	createparam(t, PM_HASHED);
-	v = NULL;
+    } else if (!(PM_TYPE(v->pm->node.flags) & PM_HASHED)) {
+	if (!(v->pm->node.flags & PM_SPECIAL)) {
+	    unsetparam(t);
+	    /* no WARNCREATEGLOBAL check here as parameter already existed */
+	    createparam(t, PM_HASHED);
+	    v = NULL;
+	} else {
+	    zerr("%s: can't change type of a special parameter", t);
+	    unqueue_signals();
+	    return NULL;
+	}
     }
     if (!v)
 	if (!(v = fetchvalue(&vbuf, &t, 1, SCANPM_ASSIGNING))) {
@@ -3256,6 +3457,7 @@ sethparam(char *s, char **val)
 	    return NULL;
 	}
     check_warn_pm(v->pm, "associative array", checkcreate, 1);
+    v->pm->node.flags &= ~PM_DEFAULTED;
     setarrvalue(v, val);
     unqueue_signals();
     return v->pm;
@@ -3327,6 +3529,7 @@ assignnparam(char *s, mnumber val, int flags)
 	if (flags & ASSPM_WARN)
 	    check_warn_pm(v->pm, "numeric", 0, 1);
     }
+    v->pm->node.flags &= ~PM_DEFAULTED;
     setnumvalue(v, val);
     unqueue_signals();
     return v->pm;
@@ -3370,7 +3573,7 @@ setiparam(char *s, zlong val)
 
 /*
  * Set an integer parameter without forcing creation of an integer type.
- * This is useful if the integer is going to be set to a parmaeter which
+ * This is useful if the integer is going to be set to a parameter which
  * would usually be scalar but may not exist.
  */
 
@@ -3431,6 +3634,7 @@ unsetparam_pm(Param pm, int altflag, int exp)
     else
 	altremove = NULL;
 
+    pm->node.flags &= ~PM_DECLARED;	/* like ksh, not like bash */
     if (!(pm->node.flags & PM_UNSET))
 	pm->gsu.s->unsetfn(pm, exp);
     if (pm->env)
@@ -3441,10 +3645,18 @@ unsetparam_pm(Param pm, int altflag, int exp)
 	altpm = (Param) paramtab->getnode(paramtab, altremove);
 	/* tied parameters are at the same local level as each other */
 	oldpm = NULL;
-	while (altpm && altpm->level > pm->level) {
-	    /* param under alternate name hidden by a local */
-	    oldpm = altpm;
-	    altpm = altpm->old;
+	/*
+	 * Look for param under alternate name hidden by a local.
+	 * If this parameter is special, however, the visible
+	 * parameter is the special and the hidden one is keeping
+	 * an old value --- we just mark the visible one as unset.
+	 */
+	if (altpm && !(altpm->node.flags & PM_SPECIAL))
+	{
+	    while (altpm && altpm->level > pm->level) {
+		oldpm = altpm;
+		altpm = altpm->old;
+	    }
 	}
 	if (altpm) {
 	    if (oldpm && !altpm->level) {
@@ -3456,6 +3668,8 @@ unsetparam_pm(Param pm, int altflag, int exp)
 	}
 
 	zsfree(altremove);
+	if (!(pm->node.flags & PM_SPECIAL))
+	    pm->gsu.s = &stdscalar_gsu;
     }
 
     /*
@@ -3670,30 +3884,49 @@ nullsethashfn(UNUSED(Param pm), HashTable x)
 /* Function to set value of an association parameter using key/value pairs */
 
 /**/
-mod_export void
-arrhashsetfn(Param pm, char **val, int augment)
+static void
+arrhashsetfn(Param pm, char **val, int flags)
 {
     /* Best not to shortcut this by using the existing hash table,   *
      * since that could cause trouble for special hashes.  This way, *
      * it's up to pm->gsu.h->setfn() what to do.                     */
-    int alen = arrlen(val);
+    int alen = 0;
     HashTable opmtab = paramtab, ht = 0;
-    char **aptr = val;
+    char **aptr;
     Value v = (Value) hcalloc(sizeof *v);
     v->end = -1;
+
+    for (aptr = val; *aptr; ++aptr) {
+	if (**aptr != Marker)
+	    ++alen;
+    }
 
     if (alen % 2) {
 	freearray(val);
 	zerr("bad set of key/value pairs for associative array");
 	return;
     }
-    if (augment) {
+    if (flags & ASSPM_AUGMENT) {
 	ht = paramtab = pm->gsu.h->getfn(pm);
     }
-    if (alen && (!augment || !paramtab)) {
+    if (alen && (!(flags & ASSPM_AUGMENT) || !paramtab)) {
 	ht = paramtab = newparamtable(17, pm->node.nam);
     }
-    while (*aptr) {
+    for (aptr = val; *aptr; ) {
+	int eltflags = 0;
+	if (**aptr == Marker) {
+	    /* Either all elements have Marker or none. Checked in caller. */
+	    if ((*aptr)[1] == '+') {
+		/* Actually, assignstrvalue currently doesn't handle this... */
+		eltflags = ASSPM_AUGMENT;
+		/* ...so we'll use the trick from setsparam(). */
+		v->start = INT_MAX;
+	    } else {
+		v->start = 0;
+	    }
+	    v->end = -1;
+	    zsfree(*aptr++);
+	}
 	/* The parameter name is ztrdup'd... */
 	v->pm = createparam(*aptr, PM_SCALAR|PM_UNSET);
 	/*
@@ -3704,7 +3937,7 @@ arrhashsetfn(Param pm, char **val, int augment)
 	    v->pm = (Param) paramtab->getnode(paramtab, *aptr);
 	zsfree(*aptr++);
 	/* ...but we can use the value without copying. */
-	setstrvalue(v, *aptr++);
+	assignstrvalue(v, *aptr++, eltflags);
     }
     paramtab = opmtab;
     pm->gsu.h->setfn(pm, ht);
@@ -3859,7 +4092,7 @@ arrvarsetfn(Param pm, char **x)
 }
 
 /**/
-char *
+mod_export char *
 colonarrgetfn(Param pm)
 {
     char ***dptr = (char ***)pm->u.data;
@@ -3867,7 +4100,7 @@ colonarrgetfn(Param pm)
 }
 
 /**/
-void
+mod_export void
 colonarrsetfn(Param pm, char *x)
 {
     char ***dptr = (char ***)pm->u.data;
@@ -3890,7 +4123,8 @@ char *
 tiedarrgetfn(Param pm)
 {
     struct tieddata *dptr = (struct tieddata *)pm->u.data;
-    return *dptr->arrptr ? zjoin(*dptr->arrptr, STOUC(dptr->joinchar), 1) : "";
+    return *dptr->arrptr ?
+	    zjoin(*dptr->arrptr, (unsigned char) dptr->joinchar, 1) : "";
 }
 
 /**/
@@ -3901,6 +4135,11 @@ tiedarrsetfn(Param pm, char *x)
 
     if (*dptr->arrptr)
 	freearray(*dptr->arrptr);
+    else if (pm->ename) {
+	Param altpm = (Param) paramtab->getnode(paramtab, pm->ename);
+	if (altpm)
+	    altpm->node.flags &= ~PM_DEFAULTED;
+    }
     if (x) {
 	char sepbuf[3];
 	if (imeta(dptr->joinchar))
@@ -4041,7 +4280,7 @@ arrayuniq(char **x, int freeok)
 	}
 	++it;
     }
-
+    
     deletehashtable(ht);
 }
 
@@ -4199,7 +4438,7 @@ usernamegetfn(UNUSED(Param pm))
 void
 usernamesetfn(UNUSED(Param pm), char *x)
 {
-#if defined(HAVE_SETUID) && defined(HAVE_GETPWNAM)
+#if defined(HAVE_SETUID) && defined(USE_GETPWNAM)
     struct passwd *pswd;
 
     if (x && (pswd = getpwnam(x)) && (pswd->pw_uid != cached_uid)) {
@@ -4216,7 +4455,7 @@ usernamesetfn(UNUSED(Param pm), char *x)
 	    cached_uid = pswd->pw_uid;
 	}
     }
-#endif /* HAVE_SETUID && HAVE_GETPWNAM */
+#endif /* HAVE_SETUID && USE_GETPWNAM */
     zsfree(x);
 }
 
@@ -4360,6 +4599,19 @@ static struct localename {
     {NULL, 0}
 };
 
+/* On some systems (at least on NetBSD-9), when LC_CTYPE changes,
+ * global variables (type mbstate_t) used by mbrtowc() etc. need be
+ * reset by clear_mbstate() */
+
+/**/
+static void
+clear_mbstate(void) {
+#ifdef MULTIBYTE_SUPPORT
+    mb_charinit();	/* utils.c */
+    clear_shiftstate();	/* pattern.c */
+#endif
+}
+
 /**/
 static void
 setlang(char *x)
@@ -4382,6 +4634,7 @@ setlang(char *x)
      * that case.
      */
     setlocale(LC_ALL, x ? unmeta(x) : "");
+    clear_mbstate();
     queue_signals();
     for (ln = lc_names; ln->name; ln++)
 	if ((x = getsparam_u(ln->name)) && *x)
@@ -4407,8 +4660,10 @@ lc_allsetfn(Param pm, char *x)
 	    unqueue_signals();
 	}
     }
-    else
+    else {
 	setlocale(LC_ALL, unmeta(x));
+	clear_mbstate();
+    }
 }
 
 /**/
@@ -4445,6 +4700,7 @@ lcsetfn(Param pm, char *x)
 		setlocale(ln->category, unmeta(x));
     }
     unqueue_signals();
+    clear_mbstate();	/* LC_CTYPE may have changed */
 }
 #endif /* USE_LOCALE */
 
@@ -4564,12 +4820,12 @@ keyboardhacksetfn(UNUSED(Param pm), char *x)
 	    zwarn("Only one KEYBOARD_HACK character can be defined");  /* could be changed if needed */
 	}
 	for (i = 0; i < len; i++) {
-	    if (!isascii(STOUC(x[i]))) {
+	    if (!isascii((unsigned char) x[i])) {
 		zwarn("KEYBOARD_HACK can only contain ASCII characters");
 		return;
 	    }
 	}
-	keyboardhackchar = len ? STOUC(x[0]) : '\0';
+	keyboardhackchar = len ? (unsigned char) x[0] : '\0';
 	free(x);
     } else
 	keyboardhackchar = '\0';
@@ -4603,14 +4859,14 @@ histcharssetfn(UNUSED(Param pm), char *x)
 	if (len > 3)
 	    len = 3;
 	for (i = 0; i < len; i++) {
-	    if (!isascii(STOUC(x[i]))) {
+	    if (!isascii((unsigned char) x[i])) {
 		zwarn("HISTCHARS can only contain ASCII characters");
 		return;
 	    }
 	}
-	bangchar = len ? STOUC(x[0]) : '\0';
-	hatchar =  len > 1 ? STOUC(x[1]) : '\0';
-	hashchar = len > 2 ? STOUC(x[2]) : '\0';
+	bangchar = len ? (unsigned char) x[0] : '\0';
+	hatchar =  len > 1 ? (unsigned char) x[1] : '\0';
+	hashchar = len > 2 ? (unsigned char) x[2] : '\0';
 	free(x);
     } else {
 	bangchar = '!';
@@ -4809,7 +5065,7 @@ arrfixenv(char *s, char **t)
 	cmdnamtab->emptytable(cmdnamtab);
 
     pm = (Param) paramtab->getnode(paramtab, s);
-
+    
     /*
      * Only one level of a parameter can be exported.  Unless
      * ALLEXPORT is set, this must be global.
@@ -4820,6 +5076,7 @@ arrfixenv(char *s, char **t)
 
     if (isset(ALLEXPORT))
 	pm->node.flags |= PM_EXPORTED;
+    pm->node.flags &= ~PM_DEFAULTED;
 
     /*
      * Do not "fix" parameters that were not exported
@@ -4828,10 +5085,10 @@ arrfixenv(char *s, char **t)
     if (!(pm->node.flags & PM_EXPORTED))
 	return;
 
-    if (pm->node.flags & PM_TIED)
-	joinchar = STOUC(((struct tieddata *)pm->u.data)->joinchar);
-    else
+    if (pm->node.flags & PM_SPECIAL)
 	joinchar = ':';
+    else
+	joinchar = (unsigned char) ((struct tieddata *)pm->u.data)->joinchar;
 
     addenv(pm, t ? zjoin(t, joinchar, 1) : "");
 }
@@ -4853,9 +5110,9 @@ zputenv(char *str)
     char *ptr;
     int ret;
 
-    for (ptr = str; *ptr && STOUC(*ptr) < 128 && *ptr != '='; ptr++)
+    for (ptr = str; *ptr && (unsigned char) *ptr < 128 && *ptr != '='; ptr++)
 	;
-    if (STOUC(*ptr) >= 128) {
+    if ((unsigned char) *ptr >= 128) {
 	/*
 	 * Environment variables not in the portable character
 	 * set are non-standard and we don't really know of
@@ -4913,13 +5170,13 @@ findenv(char *name, int *pos)
 
     eq = strchr(name, '=');
     nlen = eq ? eq - name : (int)strlen(name);
-    for (ep = environ; *ep; ep++)
+    for (ep = environ; *ep; ep++) 
 	if (!strncmp (*ep, name, nlen) && *((*ep)+nlen) == '=') {
 	    if (pos)
 		*pos = ep - environ;
 	    return 1;
 	}
-
+    
     return 0;
 }
 /**/
@@ -4936,7 +5193,7 @@ zgetenv(char *name)
     return getenv(name);
 #else
     char **ep, *s, *t;
-
+ 
     for (ep = environ; *ep; ep++) {
        for (s = *ep, t = name; *s && *s == *t; s++, t++);
        if (*s == '=' && !*t)
@@ -5251,10 +5508,16 @@ convfloat(double dval, int digits, int flags, FILE *fout)
 	ret = NULL;
     } else {
 	VARARR(char, buf, 512 + digits);
-	sprintf(buf, fmt, digits, dval);
-	if (!strchr(buf, 'e') && !strchr(buf, '.'))
-	    strcat(buf, ".");
-	ret = dupstring(buf);
+	if (isinf(dval))
+	    ret = dupstring((dval < 0.0) ? "-Inf" : "Inf");
+	else if (isnan(dval))
+	    ret = dupstring("NaN");
+	else {
+	    sprintf(buf, fmt, digits, dval);
+	    if (!strchr(buf, 'e') && !strchr(buf, '.'))
+		strcat(buf, ".");
+	    ret = dupstring(buf);
+	}
     }
 #ifdef USE_LOCALE
     if (prev_locale) setlocale(LC_NUMERIC, prev_locale);
@@ -5348,6 +5611,14 @@ startparamscope(void)
     locallevel++;
 }
 
+#ifdef USE_LOCALE
+/*
+ * Flag that one of the special LC_ functions or LANG changed on scope
+ * end
+ */
+static int lc_update_needed;
+#endif /* USE_LOCALE */
+
 /* End a parameter scope: delete the parameters local to the scope. */
 
 /**/
@@ -5358,7 +5629,29 @@ endparamscope(void)
     locallevel--;
     /* This pops anything from a higher locallevel */
     saveandpophiststack(0, HFILE_USE_OPTIONS);
+#ifdef USE_LOCALE
+    lc_update_needed = 0;
+#endif
     scanhashtable(paramtab, 0, 0, 0, scanendscope, 0);
+#ifdef USE_LOCALE
+    if (lc_update_needed)
+    {
+	/* Locale changed --- ensure it is restored. */
+	char *val;
+	if ((val = getsparam_u("LC_ALL")) && *val) {
+	    setlocale(LC_ALL, val);
+	} else {
+	    struct localename *ln;
+	    if ((val = getsparam_u("LANG")) && *val)
+		setlang(val);
+	    for (ln = lc_names; ln->name; ln++) {
+		if ((val = getsparam_u(ln->name)) && *val)
+		    setlocale(ln->category, val);
+	    }
+	}
+	clear_mbstate();    /* LC_CTYPE may have changed */
+    }
+#endif /* USE_LOCALE */
     unqueue_signals();
 }
 
@@ -5379,6 +5672,11 @@ scanendscope(HashNode hn, UNUSED(int flags))
 	     */
 	    Param tpm = pm->old;
 
+#ifdef USE_LOCALE
+	    if (!strncmp(pm->node.nam, "LC_", 3) ||
+		!strcmp(pm->node.nam, "LANG"))
+		lc_update_needed = 1;
+#endif
 	    if (!strcmp(pm->node.nam, "SECONDS"))
 	    {
 		setsecondstype(pm, PM_TYPE(tpm->node.flags), PM_TYPE(pm->node.flags));
@@ -5438,7 +5736,7 @@ void
 freeparamnode(HashNode hn)
 {
     Param pm = (Param) hn;
-
+ 
     /* The second argument of unsetfn() is used by modules to
      * differentiate "exp"licit unset from implicit unset, as when
      * a parameter is going out of scope.  It's not clear which
@@ -5448,7 +5746,7 @@ freeparamnode(HashNode hn)
 	pm->gsu.s->unsetfn(pm, 1);
     zsfree(pm->node.nam);
     /* If this variable was tied by the user, ename was ztrdup'd */
-    if (pm->node.flags & PM_TIED)
+    if (!(pm->node.flags & PM_SPECIAL))
 	zsfree(pm->ename);
     zfree(pm, sizeof(struct param));
 }
@@ -5483,7 +5781,9 @@ static const struct paramtypes pmtypes[] = {
     { PM_UPPER, "uppercase", 'u', 0},
     { PM_READONLY, "readonly", 'r', 0},
     { PM_TAGGED, "tagged", 't', 0},
-    { PM_EXPORTED, "exported", 'x', 0}
+    { PM_EXPORTED, "exported", 'x', 0},
+    { PM_UNIQUE, "unique", 'U', 0},
+    { PM_TIED, "tied", 'T', 0}
 };
 
 #define PMTYPES_SIZE ((int)(sizeof(pmtypes)/sizeof(struct paramtypes)))
@@ -5493,9 +5793,7 @@ printparamvalue(Param p, int printflags)
 {
     char *t, **u;
 
-    if (printflags & PRINT_KV_PAIR)
-	putchar(' ');
-    else
+    if (!(printflags & PRINT_KV_PAIR))
 	putchar('=');
 
     /* How the value is displayed depends *
@@ -5523,41 +5821,57 @@ printparamvalue(Param p, int printflags)
 	/* array */
 	if (!(printflags & PRINT_KV_PAIR)) {
 	    putchar('(');
-	    putchar(' ');
+	    if (!(printflags & PRINT_LINE))
+		putchar(' ');
 	}
 	u = p->gsu.a->getfn(p);
 	if(*u) {
+	    if (printflags & PRINT_LINE) {
+		if (printflags & PRINT_KV_PAIR)
+		    printf("  ");
+		else
+		    printf("\n  ");
+	    }
 	    quotedzputs(*u++, stdout);
 	    while (*u) {
-		putchar(' ');
+		if (printflags & PRINT_LINE)
+		    printf("\n  ");
+		else
+		    putchar(' ');
 		quotedzputs(*u++, stdout);
 	    }
+	    if ((printflags & (PRINT_LINE|PRINT_KV_PAIR)) == PRINT_LINE)
+		putchar('\n');
 	}
 	if (!(printflags & PRINT_KV_PAIR)) {
-	    putchar(' ');
+	    if (!(printflags & PRINT_LINE))
+		putchar(' ');
 	    putchar(')');
 	}
 	break;
     case PM_HASHED:
 	/* association */
-	if (!(printflags & PRINT_KV_PAIR)) {
-	    putchar('(');
-	    putchar(' ');
-	}
 	{
-            HashTable ht = p->gsu.h->getfn(p);
+	    HashTable ht;
+	    int found = 0;
+	    if (!(printflags & PRINT_KV_PAIR)) {
+		putchar('(');
+		if (!(printflags & PRINT_LINE))
+		    putchar(' ');
+	    }
+            ht = p->gsu.h->getfn(p);
             if (ht)
-		scanhashtable(ht, 1, 0, PM_UNSET,
-			      ht->printnode, PRINT_KV_PAIR);
+		found = scanhashtable(ht, 1, 0, PM_UNSET,
+				      ht->printnode, PRINT_KV_PAIR |
+				      (printflags & PRINT_LINE));
+	    if (!(printflags & PRINT_KV_PAIR)) {
+		if (found && (printflags & PRINT_LINE))
+		    putchar('\n');
+		putchar(')');
+	    }
 	}
-	if (!(printflags & PRINT_KV_PAIR))
-	    putchar(')');
 	break;
     }
-    if (printflags & PRINT_KV_PAIR)
-	putchar(' ');
-    else
-	putchar('\n');
 }
 
 /**/
@@ -5565,36 +5879,46 @@ mod_export void
 printparamnode(HashNode hn, int printflags)
 {
     Param p = (Param) hn;
+    Param peer = NULL;
 
     if (p->node.flags & PM_UNSET) {
-	if (isset(POSIXBUILTINS) && (p->node.flags & PM_READONLY) &&
-	    (printflags & PRINT_TYPESET))
-	{
+	if ((printflags & (PRINT_POSIX_READONLY|PRINT_POSIX_EXPORT) &&
+	     p->node.flags & (PM_READONLY|PM_EXPORTED)) ||
+	    (p->node.flags & PM_DEFAULTED) == PM_DEFAULTED) {
 	    /*
-	     * Special POSIX rules: show the parameter as readonly
+	     * Special POSIX rules: show the parameter as readonly/exported
 	     * even though it's unset, but with no value.
 	     */
 	    printflags |= PRINT_NAMEONLY;
 	}
-	else if (p->node.flags & PM_EXPORTED)
-	    printflags |= PRINT_NAMEONLY;
 	else
 	    return;
     }
     if (p->node.flags & PM_AUTOLOAD)
 	printflags |= PRINT_NAMEONLY;
 
-    if (printflags & PRINT_TYPESET) {
-	if ((p->node.flags & (PM_READONLY|PM_SPECIAL)) ==
-	    (PM_READONLY|PM_SPECIAL) ||
-	    (p->node.flags & PM_AUTOLOAD)) {
+    if (printflags & (PRINT_TYPESET|PRINT_POSIX_READONLY|PRINT_POSIX_EXPORT)) {
+	if (p->node.flags & (PM_RO_BY_DESIGN|PM_AUTOLOAD)) {
 	    /*
 	     * It's not possible to restore the state of
 	     * these, so don't output.
 	     */
 	    return;
 	}
-	if (locallevel && p->level >= locallevel) {
+	/*
+	 * The zsh variants of export -p/readonly -p also report other
+	 * flags to indicate other attributes or scope. The POSIX variants
+	 * don't.
+	 */
+	if (printflags & PRINT_POSIX_EXPORT) {
+	    if (!(p->node.flags & PM_EXPORTED))
+		return;
+	    printf("export ");
+	} else if (printflags & PRINT_POSIX_READONLY) {
+	    if (!(p->node.flags & PM_READONLY))
+		return;
+	    printf("readonly ");
+	} else if (locallevel && p->level >= locallevel) {
 	    printf("typeset ");	    /* printf("local "); */
 	} else if ((p->node.flags & PM_EXPORTED) &&
 		   !(p->node.flags & (PM_ARRAY|PM_HASHED))) {
@@ -5636,22 +5960,80 @@ printparamnode(HashNode hn, int printflags)
 		    doneminus = 0;
 		}
 		if ((pmptr->flags & PMTF_USE_WIDTH) && p->width) {
-		    printf("%d ", p->width);
+		    printf("%u ", p->width);
 		    doneminus = 0;
 		}
 	    }
 	}
 	if (doneminus)
 	    putchar(' ');
+
+	if (p->node.flags & PM_TIED) {
+	    /*
+	     * For scalars tied to arrays,s
+	     *   * typeset +m outputs
+	     *      array tied SCALAR array
+	     *      tied array SCALAR
+	     *   * typeset -p outputs:
+	     *      typeset -T SCALAR array  (for hidden values)
+	     *      typeset -T SCALAR array=(values)
+	     *      for both scalar and array (flags may be different)
+	     *
+	     * We choose to print the value for the array instead of the scalar
+	     * as scalars can't disambiguate between
+	     * typeset -T SCALAR array=()
+	     * and
+	     * typeset -T SCALAR array=('')
+	     * (same for (a b:c)...)
+	     */
+	    Param tmp = (Param) paramtab->getnode(paramtab, p->ename);
+
+	    /*
+	     * Swap param and tied peer for typeset -p output
+	     */
+	    if (!(printflags & PRINT_TYPESET) || (p->node.flags & PM_ARRAY))
+		peer = tmp;
+	    else {
+		peer = p;
+		p = tmp;
+	    }
+
+	    quotedzputs(peer->node.nam, stdout);
+	    putchar(' ');
+	}
     }
 
     if ((printflags & PRINT_NAMEONLY) ||
-	((p->node.flags & PM_HIDEVAL) && !(printflags & PRINT_INCLUDEVALUE))) {
-	zputs(p->node.nam, stdout);
-	putchar('\n');
-    } else {
+	((p->node.flags & PM_HIDEVAL) && !(printflags & PRINT_INCLUDEVALUE)))
 	quotedzputs(p->node.nam, stdout);
+    else {
+	if (printflags & PRINT_KV_PAIR) {
+	    if (printflags & PRINT_LINE)
+		printf("\n  ");
+	    putchar('[');
+	}
+	quotedzputs(p->node.nam, stdout);
+	if (printflags & PRINT_KV_PAIR)
+	    printf("]=");
 
 	printparamvalue(p, printflags);
     }
+    if (peer && (printflags & PRINT_TYPESET) && !(p->node.flags & PM_SPECIAL)) {
+	/*
+	 * append the join char for tied parameters if different from colon
+	 * for typeset -p output.
+	 */
+	unsigned char joinchar = (unsigned char) ((struct tieddata *)peer->u.data)->joinchar;
+	if (joinchar != ':') {
+	    char buf[2];
+	    buf[0] = joinchar;
+	    buf[1] = '\0';
+	    putchar(' ');
+	    quotedzputs(buf, stdout);
+	}
+    }
+    if ((printflags & (PRINT_KV_PAIR|PRINT_LINE)) == PRINT_KV_PAIR)
+	putchar(' ');
+    else if (!(printflags & PRINT_KV_PAIR))
+	putchar('\n');
 }

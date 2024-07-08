@@ -34,7 +34,7 @@
 
 /**/
 mod_export int emulation;
-
+ 
 /* current sticky emulation:  sticky = NULL means none */
 
 /**/
@@ -105,13 +105,17 @@ static struct optname optns[] = {
 {{NULL, "bsdecho",	      OPT_EMULATE|OPT_SH},	 BSDECHO},
 {{NULL, "caseglob",	      OPT_ALL},			 CASEGLOB},
 {{NULL, "casematch",	      OPT_ALL},			 CASEMATCH},
+{{NULL, "casepaths",	      0},			 CASEPATHS},
 {{NULL, "cbases",	      0},			 CBASES},
 {{NULL, "cprecedences",	      OPT_EMULATE|OPT_NONZSH},	 CPRECEDENCES},
 {{NULL, "cdablevars",	      OPT_EMULATE},		 CDABLEVARS},
+{{NULL, "cdsilent",	      0},			 CDSILENT},
 {{NULL, "chasedots",	      OPT_EMULATE},		 CHASEDOTS},
 {{NULL, "chaselinks",	      OPT_EMULATE},		 CHASELINKS},
 {{NULL, "checkjobs",	      OPT_EMULATE|OPT_ZSH},	 CHECKJOBS},
+{{NULL, "checkrunningjobs",   OPT_EMULATE|OPT_ZSH},	 CHECKRUNNINGJOBS},
 {{NULL, "clobber",	      OPT_EMULATE|OPT_ALL},	 CLOBBER},
+{{NULL, "clobberempty",	      0},			 CLOBBEREMPTY},
 {{NULL, "combiningchars",     0},			 COMBININGCHARS},
 {{NULL, "completealiases",    0},			 COMPLETEALIASES},
 {{NULL, "completeinword",     0},			 COMPLETEINWORD},
@@ -246,6 +250,7 @@ static struct optname optns[] = {
 {{NULL, "shnullcmd",          OPT_EMULATE|OPT_BOURNE},	 SHNULLCMD},
 {{NULL, "shoptionletters",    OPT_EMULATE|OPT_BOURNE},	 SHOPTIONLETTERS},
 {{NULL, "shortloops",	      OPT_EMULATE|OPT_NONBOURNE},SHORTLOOPS},
+{{NULL, "shortrepeat",	      OPT_EMULATE},              SHORTREPEAT},
 {{NULL, "shwordsplit",	      OPT_EMULATE|OPT_BOURNE},	 SHWORDSPLIT},
 {{NULL, "singlecommand",      OPT_SPECIAL},		 SINGLECOMMAND},
 {{NULL, "singlelinezle",      OPT_KSH},			 SINGLELINEZLE},
@@ -254,6 +259,7 @@ static struct optname optns[] = {
 {{NULL, "transientrprompt",   0},			 TRANSIENTRPROMPT},
 {{NULL, "trapsasync",	      0},			 TRAPSASYNC},
 {{NULL, "typesetsilent",      OPT_EMULATE|OPT_BOURNE},	 TYPESETSILENT},
+{{NULL, "typesettounset",     OPT_EMULATE|OPT_BOURNE},	 TYPESETTOUNSET},
 {{NULL, "unset",	      OPT_EMULATE|OPT_BSHELL},	 UNSET},
 {{NULL, "verbose",	      0},			 VERBOSE},
 {{NULL, "vi",		      0},			 VIMODE},
@@ -575,6 +581,7 @@ int
 bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 {
     int action, optno, match = 0;
+    int retval = 0;
 
     /* With no arguments or options, display options. */
     if (!*args) {
@@ -602,18 +609,24 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 		    inittyptab();
 		    return 1;
 		}
-		if(!(optno = optlookup(*args)))
+		if(!(optno = optlookup(*args))) {
 		    zwarnnam(nam, "no such option: %s", *args);
-		else if(dosetopt(optno, action, 0, opts))
+		    retval |= 1;
+		} else if (dosetopt(optno, action, 0, opts)) {
 		    zwarnnam(nam, "can't change option: %s", *args);
+		    retval |= 1;
+		}
 		break;
 	    } else if(**args == 'm') {
 		match = 1;
 	    } else {
-	    	if (!(optno = optlookupc(**args)))
+		if (!(optno = optlookupc(**args))) {
 		    zwarnnam(nam, "bad option: -%c", **args);
-		else if(dosetopt(optno, action, 0, opts))
+		    retval |= 1;
+		} else if (dosetopt(optno, action, 0, opts)) {
 		    zwarnnam(nam, "can't change option: -%c", **args);
+		    retval |= 1;
+		}
 	    }
 	}
 	args++;
@@ -623,10 +636,13 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
     if (!match) {
 	/* Not globbing the arguments -- arguments are simply option names. */
 	while (*args) {
-	    if(!(optno = optlookup(*args++)))
+	    if(!(optno = optlookup(*args++))) {
 		zwarnnam(nam, "no such option: %s", args[-1]);
-	    else if(dosetopt(optno, !isun, 0, opts))
+		retval |= 1;
+	    } else if (dosetopt(optno, !isun, 0, opts)) {
 		zwarnnam(nam, "can't change option: %s", args[-1]);
+		retval |= 1;
+	    }
 	}
     } else {
 	/* Globbing option (-m) set. */
@@ -649,7 +665,8 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 	    tokenize(s);
 	    if (!(pprog = patcompile(s, PAT_HEAPDUP, NULL))) {
 		zwarnnam(nam, "bad pattern: %s", *args);
-		continue;
+		retval |= 1;
+		break;
 	    }
 	    /* Loop over expansions. */
 	    scanmatchtable(optiontab, pprog, 0, 0, OPT_ALIAS,
@@ -658,7 +675,7 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 	}
     }
     inittyptab();
-    return 0;
+    return retval;
 }
 
 /* Identify an option name */
@@ -767,20 +784,99 @@ dosetopt(int optno, int value, int force, char *new_opts)
 	    return -1;
     } else if(optno == PRIVILEGED && !value) {
 	/* unsetting PRIVILEGED causes the shell to make itself unprivileged */
-#ifdef HAVE_SETUID
-	setuid(getuid());
-	setgid(getgid());
-        if (setuid(getuid())) {
-            zwarn("failed to change user ID: %e", errno);
-            return -1;
-	} else if (setgid(getgid())) {
-            zwarn("failed to change group ID: %e", errno);
-            return -1;
-        }
+
+/* For simplicity's sake, require both setresgid() and setresuid() up-front. */
+#if !defined(HAVE_SETRESGID)
+	zwarnnam("unsetopt",
+	    "PRIVILEGED: can't drop privileges; setresgid() and friends not available");
+	return -1;
+#elif !defined(HAVE_SETRESUID)
+	zwarnnam("unsetopt",
+	    "PRIVILEGED: can't drop privileges; setresuid() and friends not available");
+	return -1;
 #else
-        zwarn("setuid not available");
-        return -1;
-#endif /* not HAVE_SETUID */
+	/* If set, return -1 so lastval will be non-zero. */
+	int failed = 0;
+	const int orig_euid = geteuid();
+	const int orig_egid = getegid();
+
+	/*
+	 * Set the GID first as if we set the UID to non-privileged it
+	 * might be impossible to restore the GID.
+	 */
+	if (setresgid(getgid(), getgid(), getgid())) {
+	    zwarnnam("unsetopt",
+		"PRIVILEGED: can't drop privileges; failed to change group ID: %e",
+		errno);
+	    return -1;
+	}
+
+# ifdef USE_INITGROUPS
+	/* Set the supplementary groups list.
+	 *
+	 * Note that on macOS, FreeBSD, and possibly some other platforms,
+	 * initgroups() resets the EGID to its second argument (see setgroups(2) for
+	 * details). This has the potential to leave the EGID in an unexpected
+	 * state. However, it seems common in other projects that do this dance to
+	 * simply re-use the same GID that's going to become the EGID anyway, in
+	 * which case it doesn't matter. That's what we do here. It's therefore
+	 * possible, in some probably uncommon cases, that the shell ends up not
+	 * having the privileges of the RUID user's primary/passwd group. */
+	if (geteuid() == 0) {
+	    struct passwd *pw = getpwuid(getuid());
+	    if (pw == NULL) {
+		zwarnnam("unsetopt",
+		    "can't drop privileges; failed to get user information for uid %L: %e",
+		    (long)getuid(), errno);
+		failed = 1;
+	    /* This may behave strangely in the unlikely event that the same user
+	     * name appears with multiple UIDs in the passwd database */
+	    } else if (initgroups(pw->pw_name, getgid())) {
+		zwarnnam("unsetopt",
+		    "can't drop privileges; failed to set supplementary group list: %e",
+		    errno);
+		return -1;
+	    }
+	} else if (getuid() != 0 &&
+	    (geteuid() != getuid() || orig_egid != getegid())) {
+	    zwarnnam("unsetopt",
+		"PRIVILEGED: supplementary group list not changed due to lack of permissions: EUID=%L",
+		(long)geteuid());
+	    failed = 1;
+	}
+# else
+	/* initgroups() isn't in POSIX.  If it's not available on the system,
+	 * we silently skip it. */
+# endif
+
+	/* Set the UID second. */
+	if (setresuid(getuid(), getuid(), getuid())) {
+	    zwarnnam("unsetopt",
+		"PRIVILEGED: can't drop privileges; failed to change user ID: %e",
+		errno);
+	    return -1;
+	}
+
+	if (getuid() != 0 && orig_egid != getegid() &&
+		(setgid(orig_egid) != -1 || setegid(orig_egid) != -1)) {
+	    zwarnnam("unsetopt",
+		"PRIVILEGED: can't drop privileges; was able to restore the egid");
+	    return -1;
+	}
+
+	if (getuid() != 0 && orig_euid != geteuid() &&
+		(setuid(orig_euid) != -1 || seteuid(orig_euid) != -1)) {
+	    zwarnnam("unsetopt",
+		"PRIVILEGED: can't drop privileges; was able to restore the euid");
+	    return -1;
+	}
+
+	if (failed) {
+	    /* A warning message has been printed. */
+	    return -1;
+	}
+#endif /* HAVE_SETRESGID && HAVE_SETRESUID */
+
 #ifdef JOB_CONTROL
     } else if (!force && optno == MONITOR && value) {
 	if (new_opts[optno] == value)
@@ -808,7 +904,11 @@ dosetopt(int optno, int value, int force, char *new_opts)
 	keyboardhackchar = (value ? '`' : '\0');
     }
     new_opts[optno] = value;
-    if (optno == BANGHIST || optno == SHINSTDIN)
+    if (
+#ifdef MULTIBYTE_SUPPORT
+	optno == MULTIBYTE ||
+#endif
+	optno == BANGHIST || optno == SHINSTDIN)
 	inittyptab();
     return 0;
 }

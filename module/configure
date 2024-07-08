@@ -667,6 +667,7 @@ CURSES_KEYS_H
 ZSH_CURSES_H
 ERRNO_H
 SIGNAL_H
+PCRECONF
 ANSI2KNR
 PAPERSIZE
 TEXI2HTML
@@ -797,6 +798,7 @@ enable_custom_patchlevel
 enable_maildir_support
 enable_max_function_depth
 enable_readnullcmd
+enable_pcre
 enable_cap
 enable_gdbm
 enable_largefile
@@ -1484,12 +1486,15 @@ Optional Features:
   --enable-maildir-support
                           enable maildir support in MAIL and MAILPATH
   --enable-max-function-depth=MAX
-                          limit function depth to MAX, default 1000
+                          limit function depth to MAX, default 500
   --enable-readnullcmd=PAGER
                           pager used when READNULLCMD is not set
+  --enable-pcre           enable the search for the pcre library (may create
+                          run-time library dependencies)
   --enable-cap            enable the search for POSIX capabilities (may
                           require additional headers to be added by hand)
-  --disable-gdbm          turn off search for gdbm library
+  --enable-gdbm           enable the search for the GDBM library (see the
+                          zsh/db/gdbm module)
   --disable-largefile     omit support for large files
   --enable-multibyte      support multibyte characters
   --enable-unicode9       compile with unicode9 character widths
@@ -2669,7 +2674,6 @@ as_fn_append ac_header_c_list " strings.h strings_h HAVE_STRINGS_H"
 as_fn_append ac_header_c_list " sys/stat.h sys_stat_h HAVE_SYS_STAT_H"
 as_fn_append ac_header_c_list " sys/types.h sys_types_h HAVE_SYS_TYPES_H"
 as_fn_append ac_header_c_list " unistd.h unistd_h HAVE_UNISTD_H"
-as_fn_append ac_header_c_list " sys/time.h sys_time_h HAVE_SYS_TIME_H"
 as_fn_append ac_header_c_list " sys/param.h sys_param_h HAVE_SYS_PARAM_H"
 as_fn_append ac_func_c_list " getpagesize HAVE_GETPAGESIZE"
 
@@ -2838,6 +2842,7 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 
 
@@ -3415,14 +3420,14 @@ fi
 if test ${enable_max_function_depth+y}
 then :
   enableval=$enable_max_function_depth; if test x$enableval = xyes; then
-  printf "%s\n" "#define MAX_FUNCTION_DEPTH 1000" >>confdefs.h
+  printf "%s\n" "#define MAX_FUNCTION_DEPTH 500" >>confdefs.h
 
 elif test x$enableval != xno; then
   printf "%s\n" "#define MAX_FUNCTION_DEPTH $enableval" >>confdefs.h
 
 fi
 else case e in #(
-  e) printf "%s\n" "#define MAX_FUNCTION_DEPTH 1000" >>confdefs.h
+  e) printf "%s\n" "#define MAX_FUNCTION_DEPTH 500" >>confdefs.h
 
  ;;
 esac
@@ -3448,6 +3453,13 @@ esac
 fi
 
 
+# Check whether --enable-pcre was given.
+if test ${enable_pcre+y}
+then :
+  enableval=$enable_pcre;
+fi
+
+
 # Check whether --enable-cap was given.
 if test ${enable_cap+y}
 then :
@@ -3455,12 +3467,13 @@ then :
 fi
 
 
+# Default off for licensing reasons
 # Check whether --enable-gdbm was given.
 if test ${enable_gdbm+y}
 then :
   enableval=$enable_gdbm; gdbm="$enableval"
 else case e in #(
-  e) gdbm=yes ;;
+  e) gdbm=no ;;
 esac
 fi
 
@@ -4868,7 +4881,7 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
-                      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
+                 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
 printf %s "checking for an ANSI C-conforming const... " >&6; }
 if test ${ac_cv_c_const+y}
 then :
@@ -4979,6 +4992,7 @@ do
   CFLAGS="$ac_save_CFLAGS $ac_arg"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
+
 #ifndef __STDC__
 choke me
 #endif
@@ -5261,42 +5275,6 @@ printf "%s\n" "$zsh_cv_c_have_union_init" >&6; }
 
 if test x$zsh_cv_c_have_union_init = xyes; then
   printf "%s\n" "#define HAVE_UNION_INIT 1" >>confdefs.h
-
-fi
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if signed to unsigned casting is broken" >&5
-printf %s "checking if signed to unsigned casting is broken... " >&6; }
-if test ${zsh_cv_c_broken_signed_to_unsigned_casting+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if test "$cross_compiling" = yes
-then :
-  zsh_cv_c_broken_signed_to_unsigned_casting=no
-else case e in #(
-  e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-main(){return((int)(unsigned char)((char) -1) == 255);}
-_ACEOF
-if ac_fn_c_try_run "$LINENO"
-then :
-  zsh_cv_c_broken_signed_to_unsigned_casting=yes
-else case e in #(
-  e) zsh_cv_c_broken_signed_to_unsigned_casting=no ;;
-esac
-fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
-  conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
-esac
-fi
- ;;
-esac
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_c_broken_signed_to_unsigned_casting" >&5
-printf "%s\n" "$zsh_cv_c_broken_signed_to_unsigned_casting" >&6; }
-
-if test x$zsh_cv_c_broken_signed_to_unsigned_casting = xyes; then
-  printf "%s\n" "#define BROKEN_SIGNED_TO_UNSIGNED_CASTING 1" >>confdefs.h
 
 fi
 
@@ -5751,6 +5729,7 @@ if test "x$ac_cv_prog_YODL" = xyodl; then
     case `yodl --version` in
       *"version 2."*) YODL_OPTIONS='-k' ;;
       *"version 3."*) YODL_OPTIONS='-k -L' ;;
+      *"version 4."*) YODL_OPTIONS='-k -L' ;;
     esac
 fi
 
@@ -6162,97 +6141,6 @@ fi
 
 fi
 
-# Autoupdate added the next two lines to ensure that your configure
-# script's behavior did not change.  They are probably safe to remove.
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for egrep" >&5
-printf %s "checking for egrep... " >&6; }
-if test ${ac_cv_path_EGREP+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if echo a | $GREP -E '(a|b)' >/dev/null 2>&1
-   then ac_cv_path_EGREP="$GREP -E"
-   else
-     if test -z "$EGREP"; then
-  ac_path_EGREP_found=false
-  # Loop through the user's path and test for each of PROGNAME-LIST
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_prog in egrep
-   do
-    for ac_exec_ext in '' $ac_executable_extensions; do
-      ac_path_EGREP="$as_dir$ac_prog$ac_exec_ext"
-      as_fn_executable_p "$ac_path_EGREP" || continue
-# Check for GNU ac_path_EGREP and select it if it is found.
-  # Check for GNU $ac_path_EGREP
-case `"$ac_path_EGREP" --version 2>&1` in #(
-*GNU*)
-  ac_cv_path_EGREP="$ac_path_EGREP" ac_path_EGREP_found=:;;
-#(
-*)
-  ac_count=0
-  printf %s 0123456789 >"conftest.in"
-  while :
-  do
-    cat "conftest.in" "conftest.in" >"conftest.tmp"
-    mv "conftest.tmp" "conftest.in"
-    cp "conftest.in" "conftest.nl"
-    printf "%s\n" 'EGREP' >> "conftest.nl"
-    "$ac_path_EGREP" 'EGREP$' < "conftest.nl" >"conftest.out" 2>/dev/null || break
-    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
-    as_fn_arith $ac_count + 1 && ac_count=$as_val
-    if test $ac_count -gt ${ac_path_EGREP_max-0}; then
-      # Best one so far, save it but keep looking for a better one
-      ac_cv_path_EGREP="$ac_path_EGREP"
-      ac_path_EGREP_max=$ac_count
-    fi
-    # 10*(2^10) chars as input seems more than enough
-    test $ac_count -gt 10 && break
-  done
-  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
-esac
-
-      $ac_path_EGREP_found && break 3
-    done
-  done
-  done
-IFS=$as_save_IFS
-  if test -z "$ac_cv_path_EGREP"; then
-    as_fn_error $? "no acceptable egrep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
-  fi
-else
-  ac_cv_path_EGREP=$EGREP
-fi
-
-   fi ;;
-esac
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_EGREP" >&5
-printf "%s\n" "$ac_cv_path_EGREP" >&6; }
- EGREP="$ac_cv_path_EGREP"
-
-         EGREP_TRADITIONAL=$EGREP
- ac_cv_path_EGREP_TRADITIONAL=$EGREP
-
-
-
-
-# Obsolete code to be removed.
-if test $ac_cv_header_sys_time_h = yes; then
-
-printf "%s\n" "#define TIME_WITH_SYS_TIME 1" >>confdefs.h
-
-fi
-# End of obsolete code.
-
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether stat file-mode macros are broken" >&5
 printf %s "checking whether stat file-mode macros are broken... " >&6; }
 if test ${ac_cv_header_stat_broken+y}
@@ -6346,6 +6234,54 @@ fi
 
 
 oldcflags="$CFLAGS"
+if test x$enable_pcre = xyes; then
+# Extract the first word of "pcre-config", so it can be a program name with args.
+set dummy pcre-config; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_PCRECONF+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$PCRECONF"; then
+  ac_cv_prog_PCRECONF="$PCRECONF" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_PCRECONF="pcre-config"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+PCRECONF=$ac_cv_prog_PCRECONF
+if test -n "$PCRECONF"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PCRECONF" >&5
+printf "%s\n" "$PCRECONF" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+if test "x$ac_cv_prog_PCRECONF" = xpcre-config; then
+  CPPFLAGS="$CPPFLAGS `pcre-config --cflags`"
+fi
+fi
 
 ac_fn_c_check_header_compile "$LINENO" "sys/time.h" "ac_cv_header_sys_time_h" "$ac_includes_default"
 if test "x$ac_cv_header_sys_time_h" = xyes
@@ -6531,6 +6467,12 @@ ac_fn_c_check_header_compile "$LINENO" "netinet/in_systm.h" "ac_cv_header_netine
 if test "x$ac_cv_header_netinet_in_systm_h" = xyes
 then :
   printf "%s\n" "#define HAVE_NETINET_IN_SYSTM_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "pcre.h" "ac_cv_header_pcre_h" "$ac_includes_default"
+if test "x$ac_cv_header_pcre_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_PCRE_H 1" >>confdefs.h
 
 fi
 ac_fn_c_check_header_compile "$LINENO" "langinfo.h" "ac_cv_header_langinfo_h" "$ac_includes_default"
@@ -6989,7 +6931,7 @@ then :
 fi
 
 else
-  termcap_curses_order="$ncursesw_test $ncurses_test curses tinfo termcap"
+  termcap_curses_order="$ncursesw_test $ncurses_test tinfow tinfo termcap curses"
 fi
 else case e in #(
   e) case "$host_os" in
@@ -6999,7 +6941,7 @@ else case e in #(
    DL_EXT="${DL_EXT=sl}"
    termcap_curses_order="Hcurses $ncursesw_test $ncurses_test curses termcap" ;;
   *)
-   termcap_curses_order="$ncursesw_test $ncurses_test curses tinfo termcap" ;;
+   termcap_curses_order="$ncursesw_test $ncurses_test tinfow tinfo termcap curses" ;;
 esac ;;
 esac
 fi
@@ -7025,6 +6967,74 @@ fi
 printf "%s\n" "$zsh_cv_no_xopen" >&6; }
 if test x$zsh_cv_no_xopen = xyes; then
   printf "%s\n" "#define ZSH_NO_XOPEN 1" >>confdefs.h
+
+fi
+
+LIBS_save_pre_term="$LIBS"
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing tigetstr" >&5
+printf %s "checking for library containing tigetstr... " >&6; }
+if test ${ac_cv_search_tigetstr+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetstr (void);
+int
+main (void)
+{
+return tigetstr ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' $termcap_curses_order
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_search_tigetstr=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext
+  if test ${ac_cv_search_tigetstr+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_tigetstr+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_tigetstr=no ;;
+esac
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetstr" >&5
+printf "%s\n" "$ac_cv_search_tigetstr" >&6; }
+ac_res=$ac_cv_search_tigetstr
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 fi
 
@@ -7230,7 +7240,371 @@ else case e in #(
   zsh_cv_ignore_ncurses=no
   ;;
   *)
-  zsh_cv_ignore_ncurses=yes
+                    LIBS_save="$LIBS"
+        ac_cv_search_tigetstr_SAVE="$ac_cv_search_tigetstr"
+    ac_cv_search_tigetnum_SAVE="$ac_cv_search_tigetnum"
+    ac_cv_search_tigetflag_SAVE="$ac_cv_search_tigetflag"
+    ac_cv_search_tgetent_SAVE="$ac_cv_search_tgetent"
+    unset ac_cv_search_tigetstr ac_cv_search_tigetnum ac_cv_search_tigetflag ac_cv_search_tgetent
+    LIBS="$LIBS_save_pre_term"
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing tigetstr" >&5
+printf %s "checking for library containing tigetstr... " >&6; }
+if test ${ac_cv_search_tigetstr+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetstr (void);
+int
+main (void)
+{
+return tigetstr ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_search_tigetstr=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext
+  if test ${ac_cv_search_tigetstr+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_tigetstr+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_tigetstr=no ;;
+esac
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetstr" >&5
+printf "%s\n" "$ac_cv_search_tigetstr" >&6; }
+ac_res=$ac_cv_search_tigetstr
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing tigetnum" >&5
+printf %s "checking for library containing tigetnum... " >&6; }
+if test ${ac_cv_search_tigetnum+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetnum (void);
+int
+main (void)
+{
+return tigetnum ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_search_tigetnum=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext
+  if test ${ac_cv_search_tigetnum+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_tigetnum+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_tigetnum=no ;;
+esac
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetnum" >&5
+printf "%s\n" "$ac_cv_search_tigetnum" >&6; }
+ac_res=$ac_cv_search_tigetnum
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing tigetflag" >&5
+printf %s "checking for library containing tigetflag... " >&6; }
+if test ${ac_cv_search_tigetflag+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetflag (void);
+int
+main (void)
+{
+return tigetflag ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_search_tigetflag=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext
+  if test ${ac_cv_search_tigetflag+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_tigetflag+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_tigetflag=no ;;
+esac
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetflag" >&5
+printf "%s\n" "$ac_cv_search_tigetflag" >&6; }
+ac_res=$ac_cv_search_tigetflag
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing tgetent" >&5
+printf %s "checking for library containing tgetent... " >&6; }
+if test ${ac_cv_search_tgetent+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tgetent (void);
+int
+main (void)
+{
+return tgetent ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_search_tgetent=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext
+  if test ${ac_cv_search_tgetent+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_tgetent+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_tgetent=no ;;
+esac
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tgetent" >&5
+printf "%s\n" "$ac_cv_search_tgetent" >&6; }
+ac_res=$ac_cv_search_tgetent
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    LIBS_result="$LIBS"
+
+    LIBS="$LIBS_save"
+        ac_cv_search_tigetstr="$ac_cv_search_tigetstr_SAVE"
+    ac_cv_search_tigetnum="$ac_cv_search_tigetnum_SAVE"
+    ac_cv_search_tigetflag="$ac_cv_search_tigetflag_SAVE"
+    ac_cv_search_tgetent="$ac_cv_search_tgetent_SAVE"
+
+    case $LIBS_result in
+      *-lncurses*|*-lcurses*)
+                        zsh_cv_ignore_ncurses=yes
+        ;;
+      *)
+                                        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing initscr" >&5
+printf %s "checking for library containing initscr... " >&6; }
+if test ${ac_cv_search_initscr+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char initscr (void);
+int
+main (void)
+{
+return initscr ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_search_initscr=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext
+  if test ${ac_cv_search_initscr+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_initscr+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_initscr=no ;;
+esac
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_initscr" >&5
+printf "%s\n" "$ac_cv_search_initscr" >&6; }
+ac_res=$ac_cv_search_initscr
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+        case $LIBS in
+          *-lncurses*|*-lcurses*)
+                                    zsh_cv_ignore_ncurses=no
+          ;;
+          *)
+            zsh_cv_ignore_ncurses=yes
+          ;;
+        esac
+    esac
   ;;
 esac ;;
 esac
@@ -7869,6 +8243,10 @@ printf "%s\n" "#define ICONV_CONST $ac_cv_iconv_const" >>confdefs.h
 
 fi
 
+if test x$enable_pcre = xyes; then
+  LIBS="`$ac_cv_prog_PCRECONF --libs` $LIBS"
+fi
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if an include file defines ospeed" >&5
 printf %s "checking if an include file defines ospeed... " >&6; }
 if test ${zsh_cv_decl_ospeed_include_defines+y}
@@ -8019,41 +8397,6 @@ then :
 
 fi
 
-
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking return type of signal handlers" >&5
-printf %s "checking return type of signal handlers... " >&6; }
-if test ${ac_cv_type_signal+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <sys/types.h>
-#include <signal.h>
-
-int
-main (void)
-{
-return *(signal (0, 0)) (0) == 1;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  ac_cv_type_signal=int
-else case e in #(
-  e) ac_cv_type_signal=void ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
-esac
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_type_signal" >&5
-printf "%s\n" "$ac_cv_type_signal" >&6; }
-
-printf "%s\n" "#define RETSIGTYPE $ac_cv_type_signal" >>confdefs.h
 
 
 
@@ -8218,7 +8561,7 @@ else case e in #(
 
 #include <sys/types.h>
 
-main() { return sizeof(off_t) < 8; }
+int main() { return sizeof(off_t) < 8; }
 
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
@@ -8257,7 +8600,7 @@ else case e in #(
 
 #include <sys/types.h>
 
-main() { return sizeof(ino_t) < 8; }
+int main() { return sizeof(ino_t) < 8; }
 
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
@@ -8304,6 +8647,7 @@ else case e in #(
 #include <sys/types.h>
 #endif
 
+int
 main()
 {
   long long foo = 0;
@@ -8341,6 +8685,7 @@ else case e in #(
 #include <sys/types.h>
 #endif
 
+int
 main()
 {
   quad_t foo = 0;
@@ -8379,6 +8724,7 @@ else case e in #(
 #include <sys/types.h>
 #endif
 
+int
 main()
 {
   __int64_t foo = 0;
@@ -8418,6 +8764,7 @@ else case e in #(
 #include <sys/types.h>
 #endif
 
+int
 main()
 {
   off_t foo = 0;
@@ -8469,6 +8816,7 @@ else case e in #(
 #include <sys/types.h>
 #endif
 
+int
 main()
 {
   unsigned $zsh_cv_64_bit_type foo = 0;
@@ -8506,6 +8854,7 @@ else case e in #(
 #include <sys/types.h>
 #endif
 
+int
 main()
 {
   __uint64_t foo = 0;
@@ -8607,7 +8956,6 @@ then :
 else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#define _POSIX_C_SOURCE 200809L
 #include <sys/types.h>
 #include <signal.h>
 int
@@ -8748,6 +9096,48 @@ printf "%s\n" "$zsh_cv_type_exists_struct_timezone" >&6; }
 
 if test $zsh_cv_type_exists_struct_timezone = yes; then
   printf "%s\n" "#define HAVE_STRUCT_TIMEZONE 1" >>confdefs.h
+
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for struct timespec" >&5
+printf %s "checking for struct timespec... " >&6; }
+if test ${zsh_cv_type_exists_struct_timespec+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#define _GNU_SOURCE 1
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+
+int
+main (void)
+{
+struct timespec testvar;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  zsh_cv_type_exists_struct_timespec=yes
+else case e in #(
+  e) zsh_cv_type_exists_struct_timespec=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+ ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_type_exists_struct_timespec" >&5
+printf "%s\n" "$zsh_cv_type_exists_struct_timespec" >&6; }
+
+if test $zsh_cv_type_exists_struct_timespec = yes; then
+  printf "%s\n" "#define HAVE_STRUCT_TIMESPEC 1" >>confdefs.h
 
 fi
 
@@ -9614,6 +10004,30 @@ then :
   printf "%s\n" "#define HAVE_SETSID 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "setgid" "ac_cv_func_setgid"
+if test "x$ac_cv_func_setgid" = xyes
+then :
+  printf "%s\n" "#define HAVE_SETGID 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "setegid" "ac_cv_func_setegid"
+if test "x$ac_cv_func_setegid" = xyes
+then :
+  printf "%s\n" "#define HAVE_SETEGID 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "setregid" "ac_cv_func_setregid"
+if test "x$ac_cv_func_setregid" = xyes
+then :
+  printf "%s\n" "#define HAVE_SETREGID 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "setresgid" "ac_cv_func_setresgid"
+if test "x$ac_cv_func_setresgid" = xyes
+then :
+  printf "%s\n" "#define HAVE_SETRESGID 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "memcpy" "ac_cv_func_memcpy"
 if test "x$ac_cv_func_memcpy" = xyes
 then :
@@ -9662,6 +10076,18 @@ then :
   printf "%s\n" "#define HAVE_SETLOCALE 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "isblank" "ac_cv_func_isblank"
+if test "x$ac_cv_func_isblank" = xyes
+then :
+  printf "%s\n" "#define HAVE_ISBLANK 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "iswblank" "ac_cv_func_iswblank"
+if test "x$ac_cv_func_iswblank" = xyes
+then :
+  printf "%s\n" "#define HAVE_ISWBLANK 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "uname" "ac_cv_func_uname"
 if test "x$ac_cv_func_uname" = xyes
 then :
@@ -9678,6 +10104,12 @@ ac_fn_c_check_func "$LINENO" "tgamma" "ac_cv_func_tgamma"
 if test "x$ac_cv_func_tgamma" = xyes
 then :
   printf "%s\n" "#define HAVE_TGAMMA 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "log2" "ac_cv_func_log2"
+if test "x$ac_cv_func_log2" = xyes
+then :
+  printf "%s\n" "#define HAVE_LOG2 1" >>confdefs.h
 
 fi
 ac_fn_c_check_func "$LINENO" "scalbn" "ac_cv_func_scalbn"
@@ -9816,6 +10248,24 @@ ac_fn_c_check_func "$LINENO" "use_default_colors" "ac_cv_func_use_default_colors
 if test "x$ac_cv_func_use_default_colors" = xyes
 then :
   printf "%s\n" "#define HAVE_USE_DEFAULT_COLORS 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pcre_compile" "ac_cv_func_pcre_compile"
+if test "x$ac_cv_func_pcre_compile" = xyes
+then :
+  printf "%s\n" "#define HAVE_PCRE_COMPILE 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pcre_study" "ac_cv_func_pcre_study"
+if test "x$ac_cv_func_pcre_study" = xyes
+then :
+  printf "%s\n" "#define HAVE_PCRE_STUDY 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pcre_exec" "ac_cv_func_pcre_exec"
+if test "x$ac_cv_func_pcre_exec" = xyes
+then :
+  printf "%s\n" "#define HAVE_PCRE_EXEC 1" >>confdefs.h
 
 fi
 ac_fn_c_check_func "$LINENO" "nl_langinfo" "ac_cv_func_nl_langinfo"
@@ -10038,6 +10488,52 @@ printf "%s\n" "#define HAVE_STRCOLL 1" >>confdefs.h
 fi
 
 
+# isinf() and isnan() can exist as either functions or macros.
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for isinf" >&5
+printf %s "checking for isinf... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <math.h>
+int main () { return (isinf(1.0) != 0); }
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+   printf "%s\n" "#define HAVE_ISINF 1" >>confdefs.h
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; } ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for isnan" >&5
+printf %s "checking for isnan... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <math.h>
+int main () { return (isnan(1.0) != 0); }
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+   printf "%s\n" "#define HAVE_ISNAN 1" >>confdefs.h
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; } ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if realpath accepts NULL" >&5
 printf %s "checking if realpath accepts NULL... " >&6; }
@@ -10059,7 +10555,7 @@ int
 main (void)
 {
 
-exit(!realpath("/", (char*)0));
+return(!realpath("/", (char*)0));
 
   ;
   return 0;
@@ -10110,7 +10606,10 @@ else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-main()
+#include <fcntl.h>
+int tgetent(char *, char *);
+char *tgetstr(char *, char **);
+int main()
 {
     char buf[4096];
     int r1 = tgetent(buf, "vt100");
@@ -10121,7 +10620,7 @@ main()
     	tgetstr("cl", &u);
 	creat("conftest.tgetent", 0640);
     }
-    exit((r1 != r2) || r2 == -1);
+    return((r1 != r2) || r2 == -1);
 }
 
 _ACEOF
@@ -10162,7 +10661,10 @@ else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-main()
+#include <fcntl.h>
+int tgetent(char *, char*);
+char *tgetstr(char *, char **);
+int main()
 {
     char buf[4096];
     int r1 = tgetent(buf, "!@#$%^&*");
@@ -10173,7 +10675,7 @@ main()
     	tgetstr("cl", &u);
 	creat("conftest.tgetent0", 0640);
     }
-    exit(r1 == r2);
+    return(r1 == r2);
 }
 
 _ACEOF
@@ -10624,6 +11126,12 @@ fi
 printf "%s\n" "$zsh_cv_use_xattr" >&6; }
 
 
+case $host_os in
+  darwin10-5*) printf "%s\n" "#define SETENV_MANGLES_EQUAL 1" >>confdefs.h
+ ;;
+esac
+
+
 
 
 
@@ -10676,23 +11184,26 @@ if test -z "$sigfile_list"; then
 /usr/include/bits/signum.h
 /dev/null"
 fi
-for SIGNAL_H in $sigfile_list
+for SIGNAL_TRY_H in $sigfile_list
 do
-        nsigs=`test -f $SIGNAL_H && \
-  grep '#[ 	]*define[ 	][ 	]*SIG[0-9A-Z]*[ 	]*[0-9][0-9]*' $SIGNAL_H | \
+        nsigs=`test -f $SIGNAL_TRY_H && \
+  grep '#[ 	]*define[ 	][ 	]*SIG[0-9A-Z]*[ 	]*[0-9][0-9]*' $SIGNAL_TRY_H | \
   wc -l | sed 's/ 	//g'`
-  test "x$nsigs" != x && test "$nsigs" -ge 7 && break
+  if test "x$nsigs" != x && test "$nsigs" -ge 7
+  then
+    SIGNAL_H="$SIGNAL_H $SIGNAL_TRY_H"
+  fi
 done
-if test x$SIGNAL_H = x"/dev/null"; then
+if test "x$SIGNAL_H" = x; then
   as_fn_error $? "SIGNAL MACROS NOT FOUND:  please report to developers" "$LINENO" 5
 fi
-zsh_cv_path_signal_h=$SIGNAL_H
+zsh_cv_path_signal_h="$SIGNAL_H"
  ;;
 esac
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_path_signal_h" >&5
 printf "%s\n" "$zsh_cv_path_signal_h" >&6; }
-SIGNAL_H=$zsh_cv_path_signal_h
+SIGNAL_H="$zsh_cv_path_signal_h"
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking where error names are located" >&5
 printf %s "checking where error names are located... " >&6; }
@@ -11151,7 +11662,7 @@ else case e in #(
 #include <sys/time.h>
 #endif
 #include <sys/resource.h>
-main(){struct rlimit r;exit(sizeof(r.rlim_cur) <= sizeof(long));}
+int main(){struct rlimit r;return(sizeof(r.rlim_cur) <= sizeof(long));}
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
 then :
@@ -11188,12 +11699,12 @@ else case e in #(
 #endif
 #include <stdio.h>
 #include <sys/resource.h>
-main() {
+int main() {
   struct rlimit r;
   char buf[20];
   r.rlim_cur = 0;
   sprintf(buf, "%qd", r.rlim_cur);
-  exit(strcmp(buf, "0"));
+  return(strcmp(buf, "0"));
 }
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
@@ -11239,7 +11750,7 @@ else case e in #(
 #include <sys/time.h>
 #endif
 #include <sys/resource.h>
-  main(){struct rlimit r;r.rlim_cur=-1;exit(r.rlim_cur<0);}
+  int main(){struct rlimit r;r.rlim_cur=-1;return(r.rlim_cur<0);}
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
 then :
@@ -11986,6 +12497,46 @@ if test $zsh_cv_have_RLIMIT_RTPRIO = yes; then
 
 fi
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for limit RLIMIT_RTTIME" >&5
+printf %s "checking for limit RLIMIT_RTTIME... " >&6; }
+if test ${zsh_cv_have_RLIMIT_RTTIME+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <sys/types.h>
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#include <sys/resource.h>
+int
+main (void)
+{
+RLIMIT_RTTIME
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  zsh_cv_have_RLIMIT_RTTIME=yes
+else case e in #(
+  e) zsh_cv_have_RLIMIT_RTTIME=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_have_RLIMIT_RTTIME" >&5
+printf "%s\n" "$zsh_cv_have_RLIMIT_RTTIME" >&6; }
+
+if test $zsh_cv_have_RLIMIT_RTTIME = yes; then
+  printf "%s\n" "#define HAVE_RLIMIT_RTTIME 1" >>confdefs.h
+
+fi
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for limit RLIMIT_POSIXLOCKS" >&5
 printf %s "checking for limit RLIMIT_POSIXLOCKS... " >&6; }
 if test ${zsh_cv_have_RLIMIT_POSIXLOCKS+y}
@@ -12146,6 +12697,46 @@ if test $zsh_cv_have_RLIMIT_KQUEUES = yes; then
 
 fi
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for limit RLIMIT_UMTXP" >&5
+printf %s "checking for limit RLIMIT_UMTXP... " >&6; }
+if test ${zsh_cv_have_RLIMIT_UMTXP+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <sys/types.h>
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#include <sys/resource.h>
+int
+main (void)
+{
+RLIMIT_UMTXP
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  zsh_cv_have_RLIMIT_UMTXP=yes
+else case e in #(
+  e) zsh_cv_have_RLIMIT_UMTXP=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_have_RLIMIT_UMTXP" >&5
+printf "%s\n" "$zsh_cv_have_RLIMIT_UMTXP" >&6; }
+
+if test $zsh_cv_have_RLIMIT_UMTXP = yes; then
+  printf "%s\n" "#define HAVE_RLIMIT_UMTXP 1" >>confdefs.h
+
+fi
+
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if RLIMIT_VMEM and RLIMIT_RSS are the same" >&5
 printf %s "checking if RLIMIT_VMEM and RLIMIT_RSS are the same... " >&6; }
@@ -12153,10 +12744,6 @@ if test ${zsh_cv_rlimit_vmem_is_rss+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
-  e) if test "$cross_compiling" = yes
-then :
-  zsh_cv_rlimit_vmem_is_rss=no
-else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -12165,38 +12752,30 @@ else case e in #(
 #include <sys/time.h>
 #endif
 #include <sys/resource.h>
-int main()
+int
+main (void)
 {
-int ret = 1;
-#if defined(HAVE_RLIMIT_VMEM) && defined(HAVE_RLIMIT_RSS)
-if (RLIMIT_RSS == RLIMIT_VMEM) ret = 0;
-#endif
-return ret;
+static char x[(RLIMIT_VMEM == RLIMIT_RSS)? 1 : -1]
+  ;
+  return 0;
 }
 _ACEOF
-if ac_fn_c_try_run "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
 then :
   zsh_cv_rlimit_vmem_is_rss=yes
 else case e in #(
   e) zsh_cv_rlimit_vmem_is_rss=no ;;
 esac
 fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
-  conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
-esac
-fi
- ;;
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
 esac
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_rlimit_vmem_is_rss" >&5
 printf "%s\n" "$zsh_cv_rlimit_vmem_is_rss" >&6; }
-
 if test x$zsh_cv_rlimit_vmem_is_rss = xyes; then
   printf "%s\n" "#define RLIMIT_VMEM_IS_RSS 1" >>confdefs.h
 
 fi
-
-
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if RLIMIT_VMEM and RLIMIT_AS are the same" >&5
 printf %s "checking if RLIMIT_VMEM and RLIMIT_AS are the same... " >&6; }
@@ -12204,10 +12783,6 @@ if test ${zsh_cv_rlimit_vmem_is_as+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
-  e) if test "$cross_compiling" = yes
-then :
-  zsh_cv_rlimit_vmem_is_as=no
-else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -12216,38 +12791,30 @@ else case e in #(
 #include <sys/time.h>
 #endif
 #include <sys/resource.h>
-int main()
+int
+main (void)
 {
-int ret = 1;
-#if defined(HAVE_RLIMIT_VMEM) && defined(HAVE_RLIMIT_AS)
-if (RLIMIT_AS == RLIMIT_VMEM) ret = 0;
-#endif
-return ret;
+static char x[(RLIMIT_VMEM == RLIMIT_AS)? 1 : -1]
+  ;
+  return 0;
 }
 _ACEOF
-if ac_fn_c_try_run "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
 then :
   zsh_cv_rlimit_vmem_is_as=yes
 else case e in #(
   e) zsh_cv_rlimit_vmem_is_as=no ;;
 esac
 fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
-  conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
-esac
-fi
- ;;
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
 esac
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_rlimit_vmem_is_as" >&5
 printf "%s\n" "$zsh_cv_rlimit_vmem_is_as" >&6; }
-
 if test x$zsh_cv_rlimit_vmem_is_as = xyes; then
   printf "%s\n" "#define RLIMIT_VMEM_IS_AS 1" >>confdefs.h
 
 fi
-
-
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if RLIMIT_RSS and RLIMIT_AS are the same" >&5
 printf %s "checking if RLIMIT_RSS and RLIMIT_AS are the same... " >&6; }
@@ -12255,10 +12822,6 @@ if test ${zsh_cv_rlimit_rss_is_as+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
-  e) if test "$cross_compiling" = yes
-then :
-  zsh_cv_rlimit_rss_is_as=no
-else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -12267,37 +12830,30 @@ else case e in #(
 #include <sys/time.h>
 #endif
 #include <sys/resource.h>
-int main()
+int
+main (void)
 {
-int ret = 1;
-#if defined(HAVE_RLIMIT_RSS) && defined(HAVE_RLIMIT_AS)
-if (RLIMIT_AS == RLIMIT_RSS) ret = 0;
-#endif
-return ret;
+static char x[(RLIMIT_RSS == RLIMIT_AS)? 1 : -1]
+  ;
+  return 0;
 }
 _ACEOF
-if ac_fn_c_try_run "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
 then :
   zsh_cv_rlimit_rss_is_as=yes
 else case e in #(
   e) zsh_cv_rlimit_rss_is_as=no ;;
 esac
 fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
-  conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
-esac
-fi
- ;;
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
 esac
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_rlimit_rss_is_as" >&5
 printf "%s\n" "$zsh_cv_rlimit_rss_is_as" >&6; }
-
 if test x$zsh_cv_rlimit_rss_is_as = xyes; then
   printf "%s\n" "#define RLIMIT_RSS_IS_AS 1" >>confdefs.h
 
 fi
-
 
 if test x$ac_cv_func_getrusage = xyes; then
   ac_fn_c_check_member "$LINENO" "struct rusage" "ru_maxrss" "ac_cv_member_struct_rusage_ru_maxrss" "#include <sys/types.h>
@@ -12514,13 +13070,9 @@ if test ${zsh_cv_sys_path_dev_fd+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
-  e) if test "$host_os" = cygwin; then
-zsh_cv_sys_path_dev_fd=no
-else
-for zsh_cv_sys_path_dev_fd in /proc/self/fd /dev/fd no; do
+  e) for zsh_cv_sys_path_dev_fd in /proc/self/fd /dev/fd no; do
    test x`echo ok|(exec 3<&0; cat $zsh_cv_sys_path_dev_fd/3 2>/dev/null;)` = xok && break
- done
-fi ;;
+ done ;;
 esac
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_sys_path_dev_fd" >&5
@@ -12554,8 +13106,8 @@ then :
   printf %s "(cached) " >&6
 else case e in #(
   e) case "${host_cpu}-${host_vendor}-${host_os}" in
-    *QNX*) zsh_cv_use_getcwd=yes ;;
-    *) zsh_cv_use_getcwd=no ;;
+    *NOMATCH*) zsh_cv_use_getcwd=no ;;
+    *) zsh_cv_use_getcwd=yes ;;
  esac ;;
 esac
 fi
@@ -12697,24 +13249,15 @@ fi
 
 
 
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for NIS" >&5
-printf %s "checking for NIS... " >&6; }
-if test ${zsh_cv_sys_nis+y}
+ac_fn_c_check_func "$LINENO" "prctl" "ac_cv_func_prctl"
+if test "x$ac_cv_func_prctl" = xyes
 then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) test -f /usr/bin/ypcat && /usr/bin/ypcat passwd.byname > /dev/null 2>&1 && \
-zsh_cv_sys_nis=yes || zsh_cv_sys_nis=no ;;
-esac
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_sys_nis" >&5
-printf "%s\n" "$zsh_cv_sys_nis" >&6; }
-if test x$zsh_cv_sys_nis = xyes; then
-  printf "%s\n" "#define HAVE_NIS 1" >>confdefs.h
+  printf "%s\n" "#define HAVE_PRCTL 1" >>confdefs.h
 
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing yp_all" >&5
-printf %s "checking for library containing yp_all... " >&6; }
-if test ${ac_cv_search_yp_all+y}
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing prctl" >&5
+printf %s "checking for library containing prctl... " >&6; }
+if test ${ac_cv_search_prctl+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
@@ -12731,16 +13274,16 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char yp_all (void);
+char prctl (void);
 int
 main (void)
 {
-return yp_all ();
+return prctl ();
   ;
   return 0;
 }
 _ACEOF
-for ac_lib in '' nsl
+for ac_lib in '' c
 do
   if test -z "$ac_lib"; then
     ac_res="none required"
@@ -12750,55 +13293,39 @@ do
   fi
   if ac_fn_c_try_link "$LINENO"
 then :
-  ac_cv_search_yp_all=$ac_res
+  ac_cv_search_prctl=$ac_res
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext
-  if test ${ac_cv_search_yp_all+y}
+  if test ${ac_cv_search_prctl+y}
 then :
   break
 fi
 done
-if test ${ac_cv_search_yp_all+y}
+if test ${ac_cv_search_prctl+y}
 then :
 
 else case e in #(
-  e) ac_cv_search_yp_all=no ;;
+  e) ac_cv_search_prctl=no ;;
 esac
 fi
 rm conftest.$ac_ext
 LIBS=$ac_func_search_save_LIBS ;;
 esac
 fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_yp_all" >&5
-printf "%s\n" "$ac_cv_search_yp_all" >&6; }
-ac_res=$ac_cv_search_yp_all
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_prctl" >&5
+printf "%s\n" "$ac_cv_search_prctl" >&6; }
+ac_res=$ac_cv_search_prctl
 if test "$ac_res" != no
 then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+  printf "%s\n" "#define HAVE_PRCTL 1" >>confdefs.h
 
 fi
-
-fi
-
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for NIS+" >&5
-printf %s "checking for NIS+... " >&6; }
-if test ${zsh_cv_sys_nis_plus+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) test x$ac_cv_func_nis_list = xyes && test -f /usr/bin/nisls && \
- /usr/bin/nisls > /dev/null 2>&1 && \
-zsh_cv_sys_nis_plus=yes || zsh_cv_sys_nis_plus=no ;;
+ ;;
 esac
 fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_sys_nis_plus" >&5
-printf "%s\n" "$zsh_cv_sys_nis_plus" >&6; }
-if test x$zsh_cv_sys_nis_plus = xyes; then
-  printf "%s\n" "#define HAVE_NIS_PLUS 1" >>confdefs.h
 
-fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for utmp file" >&5
 printf %s "checking for utmp file... " >&6; }
@@ -12852,6 +13379,8 @@ then :
 else case e in #(
   e) for dir in /etc /usr/etc /var/adm /usr/adm /var/run /var/log ./conftest; do
   zsh_cv_path_utmpx=${dir}/utmpx
+  test -f $zsh_cv_path_utmpx && break
+  zsh_cv_path_utmpx=${dir}/utx.active
   test -f $zsh_cv_path_utmpx && break
   zsh_cv_path_utmpx=no
 done
@@ -13126,10 +13655,7 @@ if test ${zsh_cv_sys_fifo+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
-  e) if test "$host_os" = cygwin; then
-zsh_cv_sys_fifo=yes
-else
-if test "$cross_compiling" = yes
+  e) if test "$cross_compiling" = yes
 then :
   zsh_cv_sys_fifo=yes
 else case e in #(
@@ -13138,7 +13664,9 @@ else case e in #(
 
 #include <fcntl.h>
 #include <signal.h>
-main()
+#include <unistd.h>
+#include <sys/stat.h>
+int main()
 {
     char c;
     int fd;
@@ -13149,18 +13677,18 @@ main()
 #else
     if(mknod("/tmp/fifo$$", 0010600, 0) < 0)
 #endif
-	exit(1);
+	return(1);
     pid = fork();
     if(pid < 0)
-	exit(1);
+	return(1);
     if(pid) {
 	fd = open("/tmp/fifo$$", O_RDONLY);
-	exit(fd < 0 || read(fd, &c, 1) != 1 || c != 'x');
+	return(fd < 0 || read(fd, &c, 1) != 1 || c != 'x');
     }
     fd = open("/tmp/fifo$$", O_WRONLY);
     ret = (fd < 0 || write(fd, "x", 1) < 1);
     unlink("/tmp/fifo$$");
-    exit(ret);
+    return(ret);
 }
 
 _ACEOF
@@ -13176,7 +13704,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 esac
 fi
 
-fi ;;
+ ;;
 esac
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_sys_fifo" >&5
@@ -13184,6 +13712,89 @@ printf "%s\n" "$zsh_cv_sys_fifo" >&6; }
 
 if test x$zsh_cv_sys_fifo = xyes; then
   printf "%s\n" "#define HAVE_FIFOS 1" >>confdefs.h
+
+fi
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if lseek() correctly reports seekability" >&5
+printf %s "checking if lseek() correctly reports seekability... " >&6; }
+if test ${zsh_cv_sys_lseek+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test "$cross_compiling" = yes
+then :
+  zsh_cv_sys_lseek=yes
+else case e in #(
+  e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+int main() {
+    int pipefd[2], fd;
+    off_t ret;
+    char* tmpfile = "seekfiletest.tmp";
+    if ((fd = open(tmpfile, O_CREAT, S_IRUSR)) < 0) {
+	fprintf(stderr, "creating file failed\n");
+	return 1;
+    }
+    ret = lseek(fd, 0, SEEK_CUR);
+    close(fd);
+    unlink(tmpfile);
+    if (ret == (off_t)-1) {
+	fprintf(stderr, "lseek on regular file failed\n");
+	return 1;
+    }
+    if (pipe(pipefd) < 0) {
+	fprintf(stderr, "creating pipe failed\n");
+	return 1;
+    }
+    write(pipefd[1], "abcdefgh", 8);
+    ret = lseek(pipefd[0], 0, SEEK_CUR);
+    close(pipefd[0]);
+    close(pipefd[1]);
+    if (ret != (off_t)-1) {
+	fprintf(stderr, "lseek on pipe succeeded\n");
+	return 1;
+    }
+    if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+	fprintf(stderr, "creating UNIX domain socket failed\n");
+	return 1;
+    }
+    ret = lseek(fd, 0, SEEK_CUR);
+    close(fd);
+    if (ret != (off_t)-1) {
+	fprintf(stderr, "lseek on UNIX domain socket succeeded\n");
+	return 1;
+    }
+    return 0;
+}
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  zsh_cv_sys_lseek=yes
+else case e in #(
+  e) zsh_cv_sys_lseek=no ;;
+esac
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
+esac
+fi
+
+ ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_sys_lseek" >&5
+printf "%s\n" "$zsh_cv_sys_lseek" >&6; }
+
+if test x$zsh_cv_sys_lseek = xyes; then
+  printf "%s\n" "#define USE_LSEEK 1" >>confdefs.h
 
 fi
 
@@ -13202,7 +13813,7 @@ else case e in #(
 
 #include <unistd.h>
 #include <fcntl.h>
-main()
+int main()
 {
     int ret;
     char *tmpfile, *newfile;
@@ -13211,11 +13822,11 @@ main()
     unlink(tmpfile);
     unlink(newfile);
     if(creat(tmpfile, 0644) < 0)
-	exit(1);
+	return(1);
     ret = link(tmpfile, newfile);
     unlink(tmpfile);
     unlink(newfile);
-    exit(ret<0);
+    return(ret<0);
 }
 
 _ACEOF
@@ -13257,11 +13868,11 @@ else case e in #(
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
-main()
+int main()
 {
     int pid = (getpid() + 10000) & 0xffffff;
     while (pid && (kill(pid, 0) == 0 || errno != ESRCH)) pid >>= 1;
-    exit(errno!=ESRCH);
+    return(errno!=ESRCH);
 }
 
 _ACEOF
@@ -13308,7 +13919,7 @@ int child=0;
 void handler(sig)
     int sig;
 {if(sig==SIGCHLD) child=1;}
-main() {
+int main() {
     struct sigaction act;
     sigset_t set;
     int pid, ret;
@@ -13323,7 +13934,7 @@ main() {
     if(pid>0) {
     sigemptyset(&set);
         ret=sigsuspend(&set);
-        exit(child==0);
+        return(child==0);
     }
 }
 
@@ -13386,14 +13997,14 @@ else case e in #(
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-main() {
+int main() {
     int fd;
     int ret;
     fd=open("/dev/tty", O_RDWR);
-    if (fd < 0) exit(2);
+    if (fd < 0) return(2);
     ret=tcsetpgrp(fd, tcgetpgrp(fd));
-    if (ret < 0) exit(1);
-    exit(0);
+    if (ret < 0) return(1);
+    return(0);
 }
 
 _ACEOF
@@ -13452,7 +14063,11 @@ else case e in #(
 /* end confdefs.h.  */
 
 #include <pwd.h>
-main() {
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+int main() {
     struct passwd *pw1, *pw2;
     char buf[1024], name[1024];
     sprintf(buf, "%d:%d", getpid(), rand());
@@ -13460,7 +14075,7 @@ main() {
     if (pw1) strcpy(name, pw1->pw_name);
     sprintf(buf, "%d:%d", rand(), getpid());
     pw2=getpwnam(buf);
-    exit(pw1!=0 && pw2!=0 && !strcmp(name, pw2->pw_name));
+    return(pw1!=0 && pw2!=0 && !strcmp(name, pw2->pw_name));
 }
 
 _ACEOF
@@ -13500,7 +14115,7 @@ else case e in #(
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <sys/types.h>
-         #include <sys/socket.h>
+          #include <sys/socket.h>
 int
 main (void)
 {
@@ -13557,7 +14172,7 @@ then :
 else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#ifdef __linux
+#if defined(__linux) || defined(__CYGWIN__)
 #define _GNU_SOURCE 1
 #endif
 #include <stdlib.h>
@@ -13620,6 +14235,7 @@ fi
 printf "%s\n" "$as_me: all functions found, multibyte support enabled" >&6;}
       zsh_cv_c_unicode_support=yes
     else
+      # Warns at the end of configure
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: missing functions, multibyte support disabled" >&5
 printf "%s\n" "$as_me: missing functions, multibyte support disabled" >&6;}
       zsh_cv_c_unicode_support=no
@@ -13889,19 +14505,17 @@ else case e in #(
 /* end confdefs.h.  */
 /* Test for whether ELF binaries are produced */
 #include <fcntl.h>
-#include <stdlib.h>
-main(argc, argv)
-int argc;
-char *argv[];
+#include <unistd.h>
+int main(int argc, char *argv[])
 {
 	char b[4];
 	int i = open(argv[0],O_RDONLY);
 	if(i == -1)
-		exit(1); /* fail */
+		return(1); /* fail */
 	if(read(i,b,4)==4 && b[0]==127 && b[1]=='E' && b[2]=='L' && b[3]=='F')
-		exit(0); /* succeed (yes, it's ELF) */
+		return(0); /* succeed (yes, it's ELF) */
 	else
-		exit(1); /* fail */
+		return(1); /* fail */
 }
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
@@ -14086,7 +14700,7 @@ then :
   printf %s "(cached) " >&6
 else case e in #(
   e) echo failed >conftestval && cat >conftest.c <<EOM
-fred () { }
+void fred () { }
 EOM
     { ac_try='$CC -c $CFLAGS $CPPFLAGS $DLCFLAGS conftest.c 1>&5'
   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
@@ -14134,16 +14748,16 @@ char *zsh_gl_sym_addr ;
 
 extern int fred() ;
 
-main()
+int main()
 {
     void * handle ;
     void * symbol ;
     FILE *f=fopen("conftestval", "w");
-    if (!f) exit(1);
+    if (!f) return(1);
     handle = dlopen("./conftest.$DL_EXT", RTLD_LAZY) ;
     if (handle == NULL) {
         fprintf (f, "dlopen failed") ;
-            exit(1);
+            return(1);
     }
     symbol = dlsym(handle, "fred") ;
     if (symbol == NULL) {
@@ -14151,13 +14765,13 @@ main()
         symbol = dlsym(handle, "_fred") ;
         if (symbol == NULL) {
             fprintf (f, "dlsym failed") ;
-                exit(1);
+                return(1);
                 }
         fprintf (f, "yes") ;
     }
     else
         fprintf (f, "no") ;
-    exit(0);
+    return(0);
 }
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
@@ -14267,29 +14881,30 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
+int
 main()
 {
     void *handle1, *handle2;
     void *(*zsh_getaddr1)(), *(*zsh_getaddr2)();
     void *sym1, *sym2;
     handle1 = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle1) exit(1);
+    if(!handle1) return(1);
     handle2 = dlopen("./conftest2.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle2) exit(1);
+    if(!handle2) return(1);
     zsh_getaddr1 = (void *(*)()) dlsym(handle1, "${us}zsh_getaddr1");
     zsh_getaddr2 = (void *(*)()) dlsym(handle2, "${us}zsh_getaddr2");
     sym1 = zsh_getaddr1();
     sym2 = zsh_getaddr2();
-    if(!sym1 || !sym2) exit(1);
-    if(sym1 != sym2) exit(1);
+    if(!sym1 || !sym2) return(1);
+    if(sym1 != sym2) return(1);
     dlclose(handle1);
     handle1 = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle1) exit(1);
+    if(!handle1) return(1);
     zsh_getaddr1 = (void *(*)()) dlsym(handle1, "${us}zsh_getaddr1");
     sym1 = zsh_getaddr1();
-    if(!sym1) exit(1);
-    if(sym1 != sym2) exit(1);
-    exit(0);
+    if(!sym1) return(1);
+    if(sym1 != sym2) return(1);
+    return(0);
 }
 
 _ACEOF
@@ -14397,29 +15012,30 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
+int
 main()
 {
     void *handle1, *handle2;
     void *(*zsh_getaddr1)(), *(*zsh_getaddr2)();
     void *sym1, *sym2;
     handle1 = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle1) exit(1);
+    if(!handle1) return(1);
     handle2 = dlopen("./conftest2.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle2) exit(1);
+    if(!handle2) return(1);
     zsh_getaddr1 = (void *(*)()) dlsym(handle1, "${us}zsh_getaddr1");
     zsh_getaddr2 = (void *(*)()) dlsym(handle2, "${us}zsh_getaddr2");
     sym1 = zsh_getaddr1();
     sym2 = zsh_getaddr2();
-    if(!sym1 || !sym2) exit(1);
-    if(sym1 != sym2) exit(1);
+    if(!sym1 || !sym2) return(1);
+    if(sym1 != sym2) return(1);
     dlclose(handle1);
     handle1 = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle1) exit(1);
+    if(!handle1) return(1);
     zsh_getaddr1 = (void *(*)()) dlsym(handle1, "${us}zsh_getaddr1");
     sym1 = zsh_getaddr1();
-    if(!sym1) exit(1);
-    if(sym1 != sym2) exit(1);
-    exit(0);
+    if(!sym1) return(1);
+    if(sym1 != sym2) return(1);
+    return(0);
 }
 
 _ACEOF
@@ -14527,29 +15143,30 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
+int
 main()
 {
     void *handle1, *handle2;
     void *(*zsh_getaddr1)(), *(*zsh_getaddr2)();
     void *sym1, *sym2;
     handle1 = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle1) exit(1);
+    if(!handle1) return(1);
     handle2 = dlopen("./conftest2.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle2) exit(1);
+    if(!handle2) return(1);
     zsh_getaddr1 = (void *(*)()) dlsym(handle1, "${us}zsh_getaddr1");
     zsh_getaddr2 = (void *(*)()) dlsym(handle2, "${us}zsh_getaddr2");
     sym1 = zsh_getaddr1();
     sym2 = zsh_getaddr2();
-    if(!sym1 || !sym2) exit(1);
-    if(sym1 != sym2) exit(1);
+    if(!sym1 || !sym2) return(1);
+    if(sym1 != sym2) return(1);
     dlclose(handle1);
     handle1 = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle1) exit(1);
+    if(!handle1) return(1);
     zsh_getaddr1 = (void *(*)()) dlsym(handle1, "${us}zsh_getaddr1");
     sym1 = zsh_getaddr1();
-    if(!sym1) exit(1);
-    if(sym1 != sym2) exit(1);
-    exit(0);
+    if(!sym1) return(1);
+    if(sym1 != sym2) return(1);
+    return(0);
 }
 
 _ACEOF
@@ -14650,19 +15267,19 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-
+int
 main()
 {
     void *handle1, *handle2;
     int (*fred1)(), (*fred2)();
     handle1 = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle1) exit(1);
+    if(!handle1) return(1);
     handle2 = dlopen("./conftest2.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle2) exit(1);
+    if(!handle2) return(1);
     fred1 = (int (*)()) dlsym(handle1, "${us}fred");
     fred2 = (int (*)()) dlsym(handle2, "${us}fred");
-    if(!fred1 || !fred2) exit(1);
-    exit((*fred1)() != 42 || (*fred2)() != 69);
+    if(!fred1 || !fred2) return(1);
+    return((*fred1)() != 42 || (*fred2)() != 69);
 }
 
 _ACEOF
@@ -14763,17 +15380,18 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
+int
 main()
 {
     void *handle;
     int (*barneysym)();
     handle = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle) exit(1);
+    if(!handle) return(1);
     handle = dlopen("./conftest2.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle) exit(1);
+    if(!handle) return(1);
     barneysym = (int (*)()) dlsym(handle, "${us}barney");
-    if(!barneysym) exit(1);
-    exit((*barneysym)() != 69);
+    if(!barneysym) return(1);
+    return((*barneysym)() != 69);
 }
 
 _ACEOF
@@ -14860,15 +15478,16 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
+int
 main()
 {
     void *handle;
     int (*barneysym)();
     handle = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle) exit(1);
+    if(!handle) return(1);
     barneysym = (int (*)()) dlsym(handle, "${us}barney");
-    if(!barneysym) exit(1);
-    exit((*barneysym)() != 69);
+    if(!barneysym) return(1);
+    return((*barneysym)() != 69);
 }
 
 int fred () { return 42; }
@@ -14964,15 +15583,16 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
+int
 main()
 {
     void *handle;
     int (*barneysym)();
     handle = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle) exit(1);
+    if(!handle) return(1);
     barneysym = (int (*)()) dlsym(handle, "${us}barney");
-    if(!barneysym) exit(1);
-    exit((*barneysym)() != 69);
+    if(!barneysym) return(1);
+    return((*barneysym)() != 69);
 }
 
 int fred () { return 42; }
@@ -15059,15 +15679,16 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
+int
 main()
 {
     void *handle;
     int (*fredsym)();
     handle = dlopen("./conftest1.$DL_EXT", RTLD_LAZY | RTLD_GLOBAL);
-    if(!handle) exit(1);
+    if(!handle) return(1);
     fredsym = (int (*)()) dlsym(handle, "${us}fred");
-    if(!fredsym) exit(1);
-    exit((*fredsym)() != 42);
+    if(!fredsym) return(1);
+    return((*fredsym)() != 42);
 }
 
 _ACEOF
@@ -16645,14 +17266,23 @@ fi
 echo "See config.modules for installed modules and functions.
 "
 
-case x$LIBS in
-  *-lgdbm*)
-  echo "WARNING: zsh will be linked against libgdbm.
-This means the binary is covered by the GNU General Public License.
-This does not affect the source code.
-Run configure with --disable-gdbm if required."
-  ;;
-esac
+if test x$zsh_cv_c_unicode_support != xyes; then
+  if test "x$zfuncs_absent" = x; then
+    # The user opted out.
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: You have chosen to build without multibyte support." >&5
+printf "%s\n" "$as_me: WARNING: You have chosen to build without multibyte support." >&2;}
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: This configuration may not be suitable for production use. It is known to cause errors in 'make test'. We strongly recommend to re-run configure with --enable-multibyte." >&5
+printf "%s\n" "$as_me: WARNING: This configuration may not be suitable for production use. It is known to cause errors in 'make test'. We strongly recommend to re-run configure with --enable-multibyte." >&2;}
+  else
+    # Some requisite functions are missing.
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Multibyte support cannot be enabled: some standard library functions are missing: $zfuncs_absent" >&5
+printf "%s\n" "$as_me: WARNING: Multibyte support cannot be enabled: some standard library functions are missing: $zfuncs_absent" >&2;}
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: This configuration may not be suitable for production use. It is known to cause errors in 'make test'. If your system provides those functions, we recommend to re-run configure appropriately." >&5
+printf "%s\n" "$as_me: WARNING: This configuration may not be suitable for production use. It is known to cause errors in 'make test'. If your system provides those functions, we recommend to re-run configure appropriately." >&2;}
+    # If your system doesn't have those functions, consider patching the
+    # test suite and sending the patch to zsh-workers@ for inclusion.
+  fi
+fi
 
 exit 0
 

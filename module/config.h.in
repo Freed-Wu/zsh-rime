@@ -44,9 +44,6 @@
 /* Define to 1 if sigsuspend() is broken */
 #undef BROKEN_POSIX_SIGSUSPEND
 
-/* Define to 1 if compiler incorrectly cast signed to unsigned. */
-#undef BROKEN_SIGNED_TO_UNSIGNED_CASTING
-
 /* Define to 1 if tcsetpgrp() doesn't work, ie BeOS R4.51. */
 #undef BROKEN_TCSETPGRP
 
@@ -322,6 +319,18 @@
 /* Define to 1 if there is a prototype defined for ioctl() on your system. */
 #undef HAVE_IOCTL_PROTO
 
+/* Define to 1 if you have the 'isblank' function. */
+#undef HAVE_ISBLANK
+
+/* Define to 1 if you have the `isinf' macro or function. */
+#undef HAVE_ISINF
+
+/* Define to 1 if you have the `isnan' macro or function. */
+#undef HAVE_ISNAN
+
+/* Define to 1 if you have the 'iswblank' function. */
+#undef HAVE_ISWBLANK
+
 /* Define to 1 if you have the 'killpg' function. */
 #undef HAVE_KILLPG
 
@@ -369,6 +378,9 @@
 
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
+
+/* Define to 1 if you have the 'log2' function. */
+#undef HAVE_LOG2
 
 /* Define to 1 if you have the 'lstat' function. */
 #undef HAVE_LSTAT
@@ -430,14 +442,8 @@
 /* Define to 1 if you have the 'nice' function. */
 #undef HAVE_NICE
 
-/* Define to 1 if you have NIS. */
-#undef HAVE_NIS
-
 /* Define to 1 if you have the 'nis_list' function. */
 #undef HAVE_NIS_LIST
-
-/* Define to 1 if you have NISPLUS. */
-#undef HAVE_NIS_PLUS
 
 /* Define to 1 if you have the 'nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO
@@ -460,6 +466,18 @@
 /* Define to 1 if you have the 'pathconf' function. */
 #undef HAVE_PATHCONF
 
+/* Define to 1 if you have the 'pcre_compile' function. */
+#undef HAVE_PCRE_COMPILE
+
+/* Define to 1 if you have the 'pcre_exec' function. */
+#undef HAVE_PCRE_EXEC
+
+/* Define to 1 if you have the <pcre.h> header file. */
+#undef HAVE_PCRE_H
+
+/* Define to 1 if you have the 'pcre_study' function. */
+#undef HAVE_PCRE_STUDY
+
 /* Define to 1 if you have the 'poll' function. */
 #undef HAVE_POLL
 
@@ -468,6 +486,9 @@
 
 /* Define to 1 if you have the 'posix_openpt' function. */
 #undef HAVE_POSIX_OPENPT
+
+/* Define to 1 if the system supports `prctl' to change process name */
+#undef HAVE_PRCTL
 
 /* Define to 1 if you have the 'ptsname' function. */
 #undef HAVE_PTSNAME
@@ -547,6 +568,9 @@
 /* Define to 1 if RLIMIT_RTPRIO is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_RTPRIO
 
+/* Define to 1 if RLIMIT_RTTIME is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_RTTIME
+
 /* Define to 1 if RLIMIT_SBSIZE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_SBSIZE
 
@@ -558,6 +582,9 @@
 
 /* Define to 1 if RLIMIT_TCACHE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_TCACHE
+
+/* Define to 1 if RLIMIT_UMTXP is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_UMTXP
 
 /* Define to 1 if RLIMIT_VMEM is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_VMEM
@@ -577,11 +604,17 @@
 /* Define to 1 if you have the 'setcchar' function. */
 #undef HAVE_SETCCHAR
 
+/* Define to 1 if you have the 'setegid' function. */
+#undef HAVE_SETEGID
+
 /* Define to 1 if you have the 'setenv' function. */
 #undef HAVE_SETENV
 
 /* Define to 1 if you have the 'seteuid' function. */
 #undef HAVE_SETEUID
+
+/* Define to 1 if you have the 'setgid' function. */
+#undef HAVE_SETGID
 
 /* Define to 1 if you have the 'setlocale' function. */
 #undef HAVE_SETLOCALE
@@ -594,6 +627,12 @@
 
 /* Define to 1 if the system supports `setproctitle' to change process name */
 #undef HAVE_SETPROCTITLE
+
+/* Define to 1 if you have the 'setregid' function. */
+#undef HAVE_SETREGID
+
+/* Define to 1 if you have the 'setresgid' function. */
+#undef HAVE_SETRESGID
 
 /* Define to 1 if you have the 'setresuid' function. */
 #undef HAVE_SETRESUID
@@ -776,6 +815,9 @@
 
 /* Define to 1 if 'st_mtim.tv_nsec' is a member of 'struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
+
+/* Define to 1 if struct timespec is defined by a system header */
+#undef HAVE_STRUCT_TIMESPEC
 
 /* Define to 1 if struct timezone is defined by a system header */
 #undef HAVE_STRUCT_TIMEZONE
@@ -1052,9 +1094,6 @@
    exec'd with basename that starts with r. By default this is defined. */
 #undef RESTRICTED_R
 
-/* Define as the return type of signal handlers ('int' or 'void'). */
-#undef RETSIGTYPE
-
 /* Define to 1 if RLIMIT_RSS and RLIMIT_AS both exist and are equal. */
 #undef RLIMIT_RSS_IS_AS
 
@@ -1075,6 +1114,9 @@
 
 /* Define to 1 if select() is defined in <sys/socket.h>, ie BeOS R4.51 */
 #undef SELECT_IN_SYS_SOCKET_H
+
+/* Define to 1 if setenv removes a leading = */
+#undef SETENV_MANGLES_EQUAL
 
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
@@ -1108,10 +1150,6 @@
 /* Define if sys/time.h and sys/select.h cannot be both included. */
 #undef TIME_H_SELECT_H_CONFLICTS
 
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. This
-   macro is obsolete. */
-#undef TIME_WITH_SYS_TIME
-
 /* Define to 1 if all the kit for using /dev/ptmx for ptys is available. */
 #undef USE_DEV_PTMX
 
@@ -1120,6 +1158,9 @@
 
 /* Define to 1 if h_errno is not defined by the system. */
 #undef USE_LOCAL_H_ERRNO
+
+/* Define to 1 if lseek() can be used for SHIN. */
+#undef USE_LSEEK
 
 /* Define to 1 if you want to allocate stack memory e.g. with `alloca'. */
 #undef USE_STACK_ALLOCATION

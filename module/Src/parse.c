@@ -39,22 +39,26 @@ mod_export int incmdpos;
 int aliasspaceflag;
 
 /* != 0 if we are in the middle of a [[ ... ]] */
-
+ 
 /**/
 mod_export int incond;
-
+ 
 /* != 0 if we are after a redirection (for ctxtlex only) */
-
+ 
 /**/
 mod_export int inredir;
-
-/* != 0 if we are about to read a case pattern */
-
+ 
+/*
+ * 1 if we are about to read a case pattern
+ * -1 if we are not quite sure
+ * 0 otherwise
+ */
+ 
 /**/
 int incasepat;
-
+ 
 /* != 0 if we just read a newline */
-
+ 
 /**/
 int isnewlin;
 
@@ -78,7 +82,7 @@ mod_export int intypeset;
 
 /**/
 struct heredocs *hdocs;
-
+ 
 
 #define YYERROR(O)  { tok = LEXERR; ecused = (O); return 0; }
 #define YYERRORV(O) { tok = LEXERR; ecused = (O); return; }
@@ -92,11 +96,18 @@ struct heredocs *hdocs;
 	    } while(0)
 
 
-/*
+/* 
  * Word code.
  *
  * The parser now produces word code, reducing memory consumption compared
  * to the nested structs we had before.
+ *
+ * Word codes are represented by the "wordcode" type.
+ *
+ * Each wordcode variable consists of a "code", in the least-significant bits
+ * of the value, and "data" in the other bits.  The macros wc_code() and wc_data()
+ * access the "code" and "data" parts of a wordcode.  The macros wc_bdata() and
+ * wc_bld() build wordcodes from code and data.
  *
  * Word code layout:
  *
@@ -109,7 +120,7 @@ struct heredocs *hdocs;
  *     - if not (type & Z_END), followed by next WC_LIST
  *
  *   WC_SUBLIST
- *     - data contains type (&&, ||, END) and flags (coprog, not)
+ *     - data contains type (&&, ||, END) and flags (coproc, not)
  *     - followed by code for sublist
  *     - if not (type == END), followed by next WC_SUBLIST
  *
@@ -162,8 +173,13 @@ struct heredocs *hdocs;
  *     - followed by offset to first string
  *     - followed by length of string table
  *     - followed by number of patterns for body
+ *     - followed by an integer indicating tracing status
  *     - followed by codes for body
  *     - followed by strings for body
+ *     - if number of names is 0, followed by:
+ *       - the offset to the end of the funcdef
+ *       - the number of arguments to the function
+ *       - the arguments to the function
  *
  *   WC_FOR
  *     - data contains type (list, ...) and offset to after body
@@ -223,7 +239,7 @@ struct heredocs *hdocs;
  * sublists is that they can be executed faster, see exec.c. In the
  * parser, the test if a list can be simplified is done quite simply
  * by passing a int* around which gets set to non-zero if the thing
- * just parsed is `cmplx', i.e. may need to be run by forking or
+ * just parsed is `cmplx', i.e. may need to be run by forking or 
  * some such.
  *
  * In each of the above, strings are encoded as one word code. For empty
@@ -242,21 +258,31 @@ struct heredocs *hdocs;
  * arrays all point to the same memory block.
  *
  *
- * To make things even faster in future versions, we could not only
+ * To make things even faster in future versions, we could not only 
  * test if the strings contain tokens, but instead what kind of
  * expansions need to be done on strings. In the execution code we
  * could then use these flags for a specialized version of prefork()
  * to avoid a lot of string parsing and some more string duplication.
  */
 
-/**/
-int eclen, ecused, ecnpats;
-/**/
-Wordcode ecbuf;
-/**/
-Eccstr ecstrs;
-/**/
-int ecsoffs, ecssub, ecnfunc;
+/* Number of wordcodes allocated. */
+static int eclen;
+/* Number of wordcodes populated. */
+static int ecused;
+/* Number of patterns... */
+static int ecnpats;
+
+static Wordcode ecbuf;
+
+static Eccstr ecstrs;
+
+static int ecsoffs, ecssub;
+
+/*
+ * ### The number of starts and ends of function definitions up to this point.
+ * Never decremented.
+ */
+static int ecnfunc;
 
 #define EC_INIT_SIZE         256
 #define EC_DOUBLE_THRESHOLD  32768
@@ -360,7 +386,11 @@ ecispace(int p, int n)
     ecadjusthere(p, n);
 }
 
-/* Add one wordcode. */
+/* 
+ * Add one wordcode.
+ *
+ * Return the index of the added wordcode.
+ */
 
 static int
 ecadd(wordcode c)
@@ -394,32 +424,43 @@ ecdel(int p)
 static wordcode
 ecstrcode(char *s)
 {
-    int l, t = has_token(s);
+    int l, t;
+
+    unsigned val = hasher(s);
 
     if ((l = strlen(s) + 1) && l <= 4) {
+	/* Short string. */
+	t = has_token(s);
 	wordcode c = (t ? 3 : 2);
 	switch (l) {
-	case 4: c |= ((wordcode) STOUC(s[2])) << 19;
-	case 3: c |= ((wordcode) STOUC(s[1])) << 11;
-	case 2: c |= ((wordcode) STOUC(s[0])) <<  3; break;
+	case 4: c |= ((wordcode) (unsigned char) s[2]) << 19;
+	case 3: c |= ((wordcode) (unsigned char) s[1]) << 11;
+	case 2: c |= ((wordcode) (unsigned char) s[0]) <<  3; break;
 	case 1: c = (t ? 7 : 6); break;
 	}
 	return c;
     } else {
+	/* Long string. */
 	Eccstr p, *pp;
-	int cmp;
+	long cmp;
 
 	for (pp = &ecstrs; (p = *pp); ) {
-	    if (!(cmp = p->nfunc - ecnfunc) && !(cmp = strcmp(p->str, s)))
+	    if (!(cmp = p->nfunc - ecnfunc) && !(cmp = (((long)p->hashval) - ((long)val))) && !(cmp = strcmp(p->str, s))) {
+		/* Re-use the existing string. */
 		return p->offs;
+            }
 	    pp = (cmp < 0 ? &(p->left) : &(p->right));
 	}
+
+        t = has_token(s);
+
 	p = *pp = (Eccstr) zhalloc(sizeof(*p));
 	p->left = p->right = 0;
 	p->offs = ((ecsoffs - ecssub) << 2) | (t ? 1 : 0);
 	p->aoffs = ecsoffs;
 	p->str = s;
 	p->nfunc = ecnfunc;
+        p->hashval = val;
 	ecsoffs += l;
 
 	return p->offs;
@@ -482,7 +523,12 @@ init_parse(void)
 
 /* Build eprog. */
 
-/* careful: copy_ecstr is from arg1 to arg2, unlike memcpy */
+/*
+ * Copy the strings of s and all its descendants in the binary tree to the
+ * memory block p.
+ *
+ * careful: copy_ecstr is from arg1 to arg2, unlike memcpy
+ */
 
 static void
 copy_ecstr(Eccstr s, char *p)
@@ -796,8 +842,13 @@ par_sublist(int *cmplx)
 				 WC_SUBLIST_END),
 			     f, (e - 1 - p), c);
 	    cmdpop();
-	} else
+	} else {
+	    if (tok == AMPER || tok == AMPERBANG) {
+		c = 1;
+		*cmplx |= c;
+	    }		
 	    set_sublist_code(p, WC_SUBLIST_END, f, (e - 1 - p), c);
+	}
 	return 1;
     } else {
 	ecused--;
@@ -1186,6 +1237,7 @@ par_case(int *cmplx)
 
     for (;;) {
 	char *str;
+	int skip_zshlex;
 
 	while (tok == SEPER)
 	    zshlex();
@@ -1193,11 +1245,17 @@ par_case(int *cmplx)
 	    break;
 	if (tok == INPAR)
 	    zshlex();
-	if (tok != STRING)
-	    YYERRORV(oecused);
-	if (!strcmp(tokstr, "esac"))
-	    break;
-	str = dupstring(tokstr);
+	if (tok == BAR) {
+	    str = dupstring("");
+	    skip_zshlex = 1;
+	} else {
+	    if (tok != STRING)
+		YYERRORV(oecused);
+	    if (!strcmp(tokstr, "esac"))
+		break;
+	    str = dupstring(tokstr);
+	    skip_zshlex = 0;
+	}
 	type = WC_CASE_OR;
 	pp = ecadd(0);
 	palts = ecadd(0);
@@ -1235,10 +1293,11 @@ par_case(int *cmplx)
 	 * this doesn't affect our ability to match a | or ) as
 	 * these are valid on command lines.
 	 */
-	incasepat = 0;
+	incasepat = -1;
 	incmdpos = 1;
-	for (;;) {
+	if (!skip_zshlex)
 	    zshlex();
+	for (;;) {
 	    if (tok == OUTPAR) {
 		ecstr(str);
 		ecadd(ecnpats++);
@@ -1294,10 +1353,26 @@ par_case(int *cmplx)
 	    }
 
 	    zshlex();
-	    if (tok != STRING)
+	    switch (tok) {
+	    case STRING:
+		/* Normal case */
+		str = dupstring(tokstr);
+		zshlex();
+		break;
+
+	    case OUTPAR:
+	    case BAR:
+		/* Empty string */
+		str = dupstring("");
+		break;
+
+	    default:
+		/* Oops. */
 		YYERRORV(oecused);
-	    str = dupstring(tokstr);
+		break;
+	    }
 	}
+	incasepat = 0;
 	par_save_list(cmplx);
 	if (tok == SEMIAMP)
 	    type = WC_CASE_AND;
@@ -1469,8 +1544,10 @@ par_while(int *cmplx)
 	if (tok != ZEND)
 	    YYERRORV(oecused);
 	zshlex();
-    } else
+    } else if (unset(SHORTLOOPS)) {
 	YYERRORV(oecused);
+    } else
+	par_save_list1(cmplx);
 
     ecbuf[p] = WCB_WHILE(type, ecused - 1 - p);
 }
@@ -1516,7 +1593,7 @@ par_repeat(int *cmplx)
 	if (tok != ZEND)
 	    YYERRORV(oecused);
 	zshlex();
-    } else if (unset(SHORTLOOPS)) {
+    } else if (unset(SHORTLOOPS) && unset(SHORTREPEAT)) {
 	YYERRORV(oecused);
     } else
 	par_save_list1(cmplx);
@@ -1593,6 +1670,7 @@ par_funcdef(int *cmplx)
     int oecused = ecused, num = 0, onp, p, c = 0;
     int so, oecssub = ecssub;
     zlong oldlineno = lineno;
+    int do_tracing = 0;
 
     lineno = 0;
     nocorrect = 1;
@@ -1600,7 +1678,21 @@ par_funcdef(int *cmplx)
     zshlex();
 
     p = ecadd(0);
-    ecadd(0);
+    ecadd(0); /* p + 1 */
+
+    /* Consume an initial (-T), (--), or (-T --).
+     * Anything else is a literal function name.
+     */
+    if (tok == STRING && tokstr[0] == Dash) {
+	if (tokstr[1] == 'T' && !tokstr[2]) {
+	    ++do_tracing;
+	    zshlex();
+	}
+	if (tok == STRING && tokstr[0] == Dash &&
+	    tokstr[1] == Dash && !tokstr[2]) {
+	    zshlex();
+	}
+    }
 
     while (tok == STRING) {
 	if ((*tokstr == Inbrace || *tokstr == '{') &&
@@ -1612,9 +1704,10 @@ par_funcdef(int *cmplx)
 	num++;
 	zshlex();
     }
-    ecadd(0);
-    ecadd(0);
-    ecadd(0);
+    ecadd(0); /* p + num + 2 */
+    ecadd(0); /* p + num + 3 */
+    ecadd(0); /* p + num + 4 */
+    ecadd(0); /* p + num + 5 */
 
     nocorrect = 0;
     incmdpos = 1;
@@ -1652,18 +1745,20 @@ par_funcdef(int *cmplx)
 
     ecadd(WCB_END());
     ecbuf[p + num + 2] = so - oecssub;
-    ecbuf[p + num + 3] = ecsoffs - so;
-    ecbuf[p + num + 4] = ecnpats;
-    ecbuf[p + 1] = num;
+    ecbuf[p + num + 3] = ecsoffs - so; /* "length of string table" */
+    ecbuf[p + num + 4] = ecnpats; /* "number of patterns for body" */
+    ecbuf[p + num + 5] = do_tracing;
+    ecbuf[p + 1] = num; /* "number of names" */
 
     ecnpats = onp;
     ecssub = oecssub;
     ecnfunc++;
 
-    ecbuf[p] = WCB_FUNCDEF(ecused - 1 - p);
+    ecbuf[p] = WCB_FUNCDEF(ecused - 1 - p); /* "offset to after body" */
 
+    /* If it's an anonymous function... */
     if (num == 0) {
-	/* Unnamed function */
+	/* ... look for arguments to it. */
 	int parg = ecadd(0);
 	ecadd(0);
 	while (tok == STRING) {
@@ -1768,7 +1863,7 @@ par_simple(int *cmplx, int nr)
 	    for (ptr = str; *ptr; ptr++) {
 		/*
 		 * We can't treat this as "simple" if it contains
-		 * expansions that require process subsitution, since then
+		 * expansions that require process substitution, since then
 		 * we need process handling.
 		 */
 		if (ptr[1] == Inpar &&
@@ -1807,6 +1902,10 @@ par_simple(int *cmplx, int nr)
 	    incmdpos = oldcmdpos;
 	    isnull = 0;
 	    assignments = 1;
+	} else if (IS_REDIROP(tok)) {
+	    *cmplx = c = 1;
+	    nr += par_redir(&r, NULL);
+	    continue;
 	} else
 	    break;
 	zshlex();
@@ -1851,6 +1950,14 @@ par_simple(int *cmplx, int nr)
 			    nrediradd = par_redir(&r, idstring);
 			    p += nrediradd;
 			    sr += nrediradd;
+			}
+			else if (postassigns)
+			{
+			    /* C.f. normal case below */
+			    postassigns++;
+			    ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_INC, 0));
+			    ecstr(toksave);
+			    ecstr("");	/* TBD can possibly optimise out */
 			}
 			else
 			{
@@ -1945,7 +2052,7 @@ par_simple(int *cmplx, int nr)
 	    /* Error if preceding assignments */
 	    if (assignments || postassigns)
 		YYERROR(oecused);
-	    if (hasalias && !isset(ALIASFUNCDEF) && argc &&
+	    if (isset(EXECOPT) && hasalias && !isset(ALIASFUNCDEF) && argc &&
 		hasalias != input_hasalias()) {
 		zwarn("defining function based on alias `%s'", hasalias);
 		YYERROR(oecused);
@@ -1961,6 +2068,7 @@ par_simple(int *cmplx, int nr)
 
 	    ecispace(p + 1, 1);
 	    ecbuf[p + 1] = argc;
+	    ecadd(0);
 	    ecadd(0);
 	    ecadd(0);
 	    ecadd(0);
@@ -2019,6 +2127,7 @@ par_simple(int *cmplx, int nr)
 	    ecbuf[p + argc + 2] = so - oecssub;
 	    ecbuf[p + argc + 3] = ecsoffs - so;
 	    ecbuf[p + argc + 4] = ecnpats;
+	    ecbuf[p + argc + 5] = 0;
 
 	    ecnpats = onp;
 	    ecssub = oecssub;
@@ -2026,8 +2135,9 @@ par_simple(int *cmplx, int nr)
 
 	    ecbuf[p] = WCB_FUNCDEF(ecused - 1 - p);
 
+	    /* If it's an anonymous function... */
 	    if (argc == 0) {
-		/* Unnamed function */
+		/* ... look for arguments to it. */
 		int parg = ecadd(0);
 		ecadd(0);
 		while (tok == STRING || IS_REDIROP(tok)) {
@@ -2138,6 +2248,9 @@ par_redir(int *rp, char *idstring)
 	struct heredocs **hd;
 	int htype = type;
 
+	if (strchr(tokstr, '\n'))
+	    YYERROR(ecused);
+
 	/*
 	 * Add two here for the string to remember the HERE
 	 * terminator in raw and munged form.
@@ -2224,7 +2337,8 @@ par_redir(int *rp, char *idstring)
 void
 setheredoc(int pc, int type, char *str, char *termstr, char *munged_termstr)
 {
-    ecbuf[pc] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK);
+    int varid = WC_REDIR_VARID(ecbuf[pc]) ? REDIR_VARID_MASK : 0;
+    ecbuf[pc] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK | varid);
     ecbuf[pc + 2] = ecstrcode(str);
     ecbuf[pc + 3] = ecstrcode(termstr);
     ecbuf[pc + 4] = ecstrcode(munged_termstr);
@@ -2398,7 +2512,7 @@ par_cond_2(void)
 	 * In "test" compatibility mode, "! -a ..." and "! -o ..."
 	 * are treated as "[string] [and] ..." and "[string] [or] ...".
 	 */
-	if (!(n_testargs > 1 && (check_cond(*testargs, "a") ||
+	if (!(n_testargs > 2 && (check_cond(*testargs, "a") ||
 				 check_cond(*testargs, "o"))))
 	{
 	    condlex();
@@ -2700,9 +2814,6 @@ freeeprog(Eprog p)
 	DPUTS(p->nref > 0 && (p->flags & EF_HEAP), "Heap EPROG has nref > 0");
 	DPUTS(p->nref < 0 && !(p->flags & EF_HEAP), "Real EPROG has nref < 0");
 	DPUTS(p->nref < -1, "Uninitialised EPROG nref");
-#ifdef MAX_FUNCTION_DEPTH
-	DPUTS(p->nref > MAX_FUNCTION_DEPTH + 10, "Overlarge EPROG nref");
-#endif
 	if (p->nref > 0 && !--p->nref) {
 	    for (i = p->npats, pp = p->pats; i--; pp++)
 		freepatprog(*pp);
@@ -2715,6 +2826,13 @@ freeeprog(Eprog p)
 	}
     }
 }
+
+/*
+ * dup is of type 'enum ec_dup_t'.
+ *
+ * If tokflag is not NULL, *tokflag will be set to 1 if the string contains
+ * tokens and to 0 otherwise.
+ */
 
 /**/
 char *
@@ -2947,7 +3065,7 @@ init_eprog(void)
  * host the file was created on and once for the other byte-order. The
  * header describes where the beginning of the `other' version is and it
  * is up to the shell reading the file to decide which version it needs.
- * This is done by checking if the first word is FD_MAGIC (then the
+ * This is done by checking if the first word is FD_MAGIC (then the 
  * shell reading the file has the same byte order as the one that created
  * the file) or if it is FD_OMAGIC, then the `other' version has to be
  * read.
@@ -3106,7 +3224,7 @@ bin_zcompile(char *nam, char **args, Options ops, UNUSED(int func))
     queue_signals();
     ret = ((OPT_ISSET(ops,'c') || OPT_ISSET(ops,'a')) ?
 	   build_cur_dump(nam, dump, args + 1, OPT_ISSET(ops,'m'), map,
-			  (OPT_ISSET(ops,'c') ? 1 : 0) |
+			  (OPT_ISSET(ops,'c') ? 1 : 0) | 
 			  (OPT_ISSET(ops,'a') ? 2 : 0)) :
 	   build_dump(nam, dump, args + 1, OPT_ISSET(ops,'U'), map, flags));
     unqueue_signals();
@@ -3520,7 +3638,7 @@ zwcstat(char *filename, struct stat *buf)
     if (stat(filename, buf)) {
 #ifdef HAVE_FSTAT
         FuncDump f;
-
+    
 	for (f = dumps; f; f = f->next) {
 	    if (!strncmp(filename, f->filename, strlen(f->filename)) &&
 		!fstat(f->fd, buf))
@@ -3631,15 +3749,15 @@ try_dump_file(char *path, char *name, char *file, int *ksh, int test_only)
      * function. */
     queue_signals();
     if (!rd &&
-	(rc || std.st_mtime > stc.st_mtime) &&
-	(rn || std.st_mtime > stn.st_mtime) &&
+	(rc || std.st_mtime >= stc.st_mtime) &&
+	(rn || std.st_mtime >= stn.st_mtime) &&
 	(prog = check_dump_file(dig, &std, name, ksh, test_only))) {
 	unqueue_signals();
 	return prog;
     }
     /* No digest file. Now look for the per-function compiled file. */
     if (!rc &&
-	(rn || stc.st_mtime > stn.st_mtime) &&
+	(rn || stc.st_mtime >= stn.st_mtime) &&
 	(prog = check_dump_file(wc, &stc, name, ksh, test_only))) {
 	unqueue_signals();
 	return prog;
@@ -3678,7 +3796,7 @@ try_source_file(char *file)
     rn = stat(file, &stn);
 
     queue_signals();
-    if (!rc && (rn || stc.st_mtime > stn.st_mtime) &&
+    if (!rc && (rn || stc.st_mtime >= stn.st_mtime) &&
 	(prog = check_dump_file(wc, &stc, tail, NULL, 0))) {
 	unqueue_signals();
 	return prog;

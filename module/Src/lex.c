@@ -60,17 +60,17 @@ mod_export int tokfd;
 zlong toklineno;
 
 /* lexical analyzer error flag */
-
+ 
 /**/
 mod_export int lexstop;
 
 /* if != 0, this is the first line of the command */
-
+ 
 /**/
 mod_export int isfirstln;
-
+ 
 /* if != 0, this is the first char of the command (not including white space) */
-
+ 
 /**/
 int isfirstch;
 
@@ -85,7 +85,7 @@ int inalmore;
  * set when we detect a lookahead that stops the word from
  * needing correction.
  */
-
+ 
 /**/
 int nocorrect;
 
@@ -158,7 +158,7 @@ mod_export int nocomments;
 /* add raw input characters while parsing command substitution */
 
 /**/
-static int lex_add_raw;
+int lex_add_raw;
 
 /* variables associated with the above */
 
@@ -270,7 +270,7 @@ zshlex(void)
     do {
 	if (inrepeat_)
 	    ++inrepeat_;
-	if (inrepeat_ == 3 && isset(SHORTLOOPS))
+	if (inrepeat_ == 3 && (isset(SHORTLOOPS) || isset(SHORTREPEAT)))
 	    incmdpos = 1;
 	tok = gettok();
     } while (tok != ENDINPUT && exalias());
@@ -423,7 +423,7 @@ initlextabs(void)
     for (t0 = 0; lx2[t0]; t0++)
 	lexact2[(int)lx2[t0]] = t0;
     lexact2['&'] = LX2_BREAK;
-    lexact2[STOUC(Meta)] = LX2_META;
+    lexact2[(unsigned char) Meta] = LX2_META;
     lextok2['*'] = Star;
     lextok2['?'] = Quest;
     lextok2['{'] = Inbrace;
@@ -540,6 +540,17 @@ static int
 cmd_or_math_sub(void)
 {
     int c = hgetc(), ret;
+
+    if (c == '\\') {
+	c = hgetc();
+	if (c != '\n') {
+	    hungetc(c);
+	    hungetc('\\');
+	    lexstop = 0;
+	    return skipcomm() ? CMD_OR_MATH_ERR : CMD_OR_MATH_CMD;
+	}
+	c = hgetc();
+    }
 
     if (c == '(') {
 	int lexpos = (int)(lexbuf.ptr - tokstr);
@@ -677,7 +688,7 @@ gettok(void)
 		(char *)hcalloc(lexbuf.siz = LEX_HEAP_SIZE);
 	    add(c);
 	}
-	hwend();
+	hwabort();
 	while ((c = ingetc()) != '\n' && !lexstop) {
 	    hwaddc(c);
 	    addtoline(c);
@@ -711,7 +722,7 @@ gettok(void)
 	}
 	return peek;
     }
-    switch (lexact1[STOUC(c)]) {
+    switch (lexact1[(unsigned char) c]) {
     case LX1_BKSLASH:
 	d = hgetc();
 	if (d == '\n')
@@ -760,7 +771,7 @@ gettok(void)
 	return AMPER;
     case LX1_BAR:
 	d = hgetc();
-	if (d == '|')
+	if (d == '|' && !incasepat)
 	    return DBAR;
 	else if (d == '&')
 	    return BARAMP;
@@ -789,7 +800,7 @@ gettok(void)
 		     */
 		    tokstr = NULL;
 		    return INPAR;
-
+		    
 		case CMD_OR_MATH_ERR:
 		    /*
 		     * LEXFLAGS_ACTIVE means we came from bufferwords(),
@@ -942,15 +953,15 @@ gettokstr(int c, int sub)
 	int act;
 	int e;
 	int inbl = inblank(c);
-
+	
 	if (fdpar && !inbl && c != ')')
 	    fdpar = 0;
 
 	if (inbl && !in_brace_param && !pct)
 	    act = LX2_BREAK;
 	else {
-	    act = lexact2[STOUC(c)];
-	    c = lextok2[STOUC(c)];
+	    act = lexact2[(unsigned char) c];
+	    c = lextok2[(unsigned char) c];
 	}
 	switch (act) {
 	case LX2_BREAK:
@@ -998,6 +1009,16 @@ gettokstr(int c, int sub)
 	    break;
 	case LX2_STRING:
 	    e = hgetc();
+	    if (e == '\\') {
+		e = hgetc();
+		if (e != '\n') {
+		    hungetc(e);
+		    hungetc('\\');
+		    lexstop = 0;
+		    break;
+		}
+		e = hgetc();
+	    }
 	    if (e == '[') {
 		cmdpush(CS_MATHSUBST);
 		add(String);
@@ -1058,7 +1079,7 @@ gettokstr(int c, int sub)
 	    if (isset(SHGLOB)) {
 		if (sub || in_brace_param)
 		    break;
-		if (incasepat && !lexbuf.len)
+		if (incasepat > 0 && !lexbuf.len)
 		    return INPAR;
 		if (!isset(KSHGLOB) && lexbuf.len)
 		    goto brk;
@@ -1242,7 +1263,7 @@ gettokstr(int c, int sub)
 		    continue;
 	    } else {
 		add(Bnull);
-		if (c == STOUC(Meta)) {
+		if (c == (unsigned char) Meta) {
 		    c = hgetc();
 #ifdef DEBUG
 		    if (lexstop) {
@@ -1291,7 +1312,9 @@ gettokstr(int c, int sub)
 		ALLOWHIST
 		if (c != '\'') {
 		    unmatched = '\'';
-		    peek = LEXERR;
+		    /* Not an error when called from bufferwords() */
+		    if (!(lexflags & LEXFLAGS_ACTIVE))
+			peek = LEXERR;
 		    cmdpop();
 		    goto brk;
 		}
@@ -1313,7 +1336,9 @@ gettokstr(int c, int sub)
 	    cmdpop();
 	    if (c) {
 		unmatched = '"';
-		peek = LEXERR;
+		/* Not an error when called from bufferwords() */
+		if (!(lexflags & LEXFLAGS_ACTIVE))
+		    peek = LEXERR;
 		goto brk;
 	    }
 	    c = Dnull;
@@ -1350,7 +1375,9 @@ gettokstr(int c, int sub)
 	    cmdpop();
 	    if (c != '`') {
 		unmatched = '`';
-		peek = LEXERR;
+		/* Not an error when called from bufferwords() */
+		if (!(lexflags & LEXFLAGS_ACTIVE))
+		    peek = LEXERR;
 		goto brk;
 	    }
 	    c = Tick;
@@ -1392,7 +1419,7 @@ gettokstr(int c, int sub)
 	return LEXERR;
     }
     hungetc(c);
-    if (unmatched)
+    if (unmatched && !(lexflags & LEXFLAGS_ACTIVE))
 	zerr("unmatched %c", unmatched);
     if (in_brace_param) {
 	while(bct-- >= in_brace_param)
@@ -1402,10 +1429,18 @@ gettokstr(int c, int sub)
 	       peek == STRING && lexbuf.ptr[-1] == '}' &&
 	       lexbuf.ptr[-2] != Bnull) {
 	/* hack to get {foo} command syntax work */
+	/*
+	 * Alias expansion when parsing command substitution means that
+	 * the case for raw lexical analysis may not be the same.
+	 * (Just go with it, OK?)
+	 */
+	int lar = lex_add_raw;
+	lex_add_raw = lexbuf_raw.len > 0 && lexbuf_raw.ptr[-1] == '}';
 	lexbuf.ptr--;
 	lexbuf.len--;
 	lexstop = 0;
 	hungetc('}');
+	lex_add_raw = lar;
     }
     *lexbuf.ptr = '\0';
     DPUTS(cmdsp != ocmdsp, "BUG: gettok: cmdstack changed.");
@@ -1607,6 +1642,7 @@ parsestr(char **s)
 		zerr("parse error near `%c'", err);
 	    else
 		zerr("parse error");
+	    tok = LEXERR;
 	}
     }
     return err;
@@ -1620,7 +1656,7 @@ parsestrnoerr(char **s)
 
     zcontext_save();
     untokenize(*s);
-    inpush(dupstring(*s), 0, NULL);
+    inpush(dupstring_wlen(*s, l), 0, NULL);
     strinbeg(0);
     lexbuf.len = 0;
     lexbuf.ptr = tokstr = *s;
@@ -1652,7 +1688,7 @@ parse_subscript(char *s, int sub, int endchar)
     if (!*s || *s == endchar)
 	return 0;
     zcontext_save();
-    untokenize(t = dupstring(s));
+    untokenize(t = dupstring_wlen(s, l));
     inpush(t, 0, NULL);
     strinbeg(0);
     /*
@@ -1668,7 +1704,7 @@ parse_subscript(char *s, int sub, int endchar)
      * length preservation.
      */
     lexbuf.len = 0;
-    lexbuf.ptr = tokstr = dupstring(s);
+    lexbuf.ptr = tokstr = dupstring_wlen(s, l);
     lexbuf.siz = l + 1;
     err = dquote_parse(endchar, sub);
     toklen = (int)(lexbuf.ptr - tokstr);
@@ -1707,7 +1743,7 @@ parse_subst_string(char *s)
 	return 0;
     zcontext_save();
     untokenize(s);
-    inpush(dupstring(s), 0, NULL);
+    inpush(dupstring_wlen(s, l), 0, NULL);
     strinbeg(0);
     lexbuf.len = 0;
     lexbuf.ptr = tokstr = s;
@@ -1859,8 +1895,9 @@ exalias(void)
     Reswd rw;
 
     hwend();
-    if (interact && isset(SHINSTDIN) && !strin && !incasepat &&
+    if (interact && isset(SHINSTDIN) && !strin && incasepat <= 0 &&
 	tok == STRING && !nocorrect && !(inbufflags & INP_ALIAS) &&
+	!hist_is_in_word()  &&
 	(isset(CORRECTALL) || (isset(CORRECT) && incmdpos)))
 	spckword(&tokstr, 1, incmdpos, 1);
 
@@ -2102,7 +2139,7 @@ skipcomm(void)
 	hist_in_word(1);
     } else {
 	/*
-	 * Set up for nested command subsitution, however
+	 * Set up for nested command substitution, however
 	 * we don't actually need the string until we get
 	 * back to the top level and recover the lot.
 	 * The $() body just appears empty.
@@ -2128,8 +2165,12 @@ skipcomm(void)
      * function at the history layer --- this is consistent with the
      * intention of maintaining the history and input layers across
      * the recursive parsing.
+     *
+     * Also turn off LEXFLAGS_NEWLINE because this is already skipping
+     * across the entire construct, and parse_event() needs embedded
+     * newlines to be "real" when looking for the OUTPAR token.
      */
-    lexflags &= ~LEXFLAGS_ZLE;
+    lexflags &= ~(LEXFLAGS_ZLE|LEXFLAGS_NEWLINE);
     dbparens = 0;	/* restored by zcontext_restore_partial() */
 
     if (!parse_event(OUTPAR) || tok != OUTPAR) {

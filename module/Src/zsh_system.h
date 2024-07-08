@@ -137,6 +137,10 @@ char *alloca _((size_t));
 #include <stddef.h>
 #endif
 
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
+
 #include <stdio.h>
 #include <ctype.h>
 #include <sys/stat.h>
@@ -231,22 +235,22 @@ char *alloca _((size_t));
 # include <errno.h>
 #endif
 
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-# include <sys/time.h>
-# else
-#  include <time.h>
-# endif
-#endif
+#include <sys/time.h>
+#include <time.h>
 
 /* This is needed by some old SCO unices */
 #if !defined(HAVE_STRUCT_TIMEZONE) && !defined(ZSH_OOT_MODULE)
 struct timezone {
     int tz_minuteswest;
     int tz_dsttime;
+};
+#endif
+
+/* Used to provide compatibility with clock_gettime() */
+#if !defined(HAVE_STRUCT_TIMESPEC) && !defined(ZSH_OOT_MODULE)
+struct timespec {
+    time_t tv_sec;
+    long tv_nsec;
 };
 #endif
 
@@ -267,16 +271,7 @@ struct timezone {
 # include <sys/times.h>
 #endif
 
-#if STDC_HEADERS || HAVE_STRING_H
 # include <string.h>
-/* An ANSI string.h and pre-ANSI memory.h might conflict.  */
-# if !STDC_HEADERS && HAVE_MEMORY_H
-#  include <memory.h>
-# endif /* not STDC_HEADERS and HAVE_MEMORY_H */
-#else   /* not STDC_HEADERS and not HAVE_STRING_H */
-# include <strings.h>
-/* memory.h and strings.h conflict on some systems.  */
-#endif /* not STDC_HEADERS and not HAVE_STRING_H */
 
 #ifdef HAVE_LOCALE_H
 # include <locale.h>
@@ -456,30 +451,90 @@ struct timezone {
 # define setpgrp setpgid
 #endif
 
-/* can we set the user/group id of a process */
+/* compatibility wrappers */
 
-#ifndef HAVE_SETUID
+/* Our strategy is as follows:
+ *
+ * - Ensure that either setre[ug]id() or set{e,}[ug]id() is available.
+ * - If setres[ug]id() are missing, provide them in terms of either
+ *   setre[ug]id() or set{e,}[ug]id(), whichever is available.
+ * - Provide replacement setre[ug]id() or set{e,}[ug]id() if they are not
+ *   available natively.
+ *
+ * There isn't a circular dependency because, right off the bat, we check that
+ * there's an end condition, and #error out otherwise.
+ */
+#if !defined(HAVE_SETREUID) && !(defined(HAVE_SETEUID) && defined(HAVE_SETUID))
+  /*
+   * If you run into this error, you have two options:
+   * - Teach zsh how to do the equivalent of setreuid() on your system
+   * - Remove support for PRIVILEGED option, and then remove the #error.
+   */
+# error "Don't know how to change UID"
+#endif
+#if !defined(HAVE_SETREGID) && !(defined(HAVE_SETEGID) && defined(HAVE_SETGID))
+  /* See above comment. */
+# error "Don't know how to change GID"
+#endif
+
+/* Provide setresuid(). */
+#ifndef HAVE_SETRESUID
+int	setresuid(uid_t, uid_t, uid_t);
+# define HAVE_SETRESUID
+# define ZSH_IMPLEMENT_SETRESUID
 # ifdef HAVE_SETREUID
-#  define setuid(X) setreuid(X,X)
-#  define setgid(X) setregid(X,X)
-#  define HAVE_SETUID
+#  define ZSH_HAVE_NATIVE_SETREUID
 # endif
 #endif
 
-/* can we set the effective user/group id of a process */
-
-#ifndef HAVE_SETEUID
-# ifdef HAVE_SETREUID
-#  define seteuid(X) setreuid(-1,X)
-#  define setegid(X) setregid(-1,X)
-#  define HAVE_SETEUID
-# else
-#  ifdef HAVE_SETRESUID
-#   define seteuid(X) setresuid(-1,X,-1)
-#   define setegid(X) setresgid(-1,X,-1)
-#   define HAVE_SETEUID
-#  endif
+/* Provide setresgid(). */
+#ifndef HAVE_SETRESGID
+int	setresgid(gid_t, gid_t, gid_t);
+# define HAVE_SETRESGID
+# define ZSH_IMPLEMENT_SETRESGID
+# ifdef HAVE_SETREGID
+#  define ZSH_HAVE_NATIVE_SETREGID
 # endif
+#endif
+
+/* Provide setreuid(). */
+#ifndef HAVE_SETREUID
+# define setreuid(X, Y) setresuid((X), (Y), -1)
+# define HAVE_SETREUID
+#endif
+
+/* Provide setregid(). */
+#ifndef HAVE_SETREGID
+# define setregid(X, Y) setresgid((X), (Y), -1)
+# define HAVE_SETREGID
+#endif
+
+/* Provide setuid(). */
+/* ### TODO: Either remove this (this function has been standard since 1985),
+ * ###       or rewrite this without multiply-evaluating the argument */
+#ifndef HAVE_SETUID
+# define setuid(X) setreuid((X), (X))
+# define HAVE_SETUID
+#endif
+
+/* Provide setgid(). */
+#ifndef HAVE_SETGID
+/* ### TODO: Either remove this (this function has been standard since 1985),
+ * ###       or rewrite this without multiply-evaluating the argument */
+#  define setgid(X) setregid((X), (X))
+#  define HAVE_SETGID
+#endif
+
+/* Provide seteuid(). */
+#ifndef HAVE_SETEUID
+# define seteuid(X) setreuid(-1, (X))
+# define HAVE_SETEUID
+#endif
+
+/* Provide setegid(). */
+#ifndef HAVE_SETEGID
+# define setegid(X) setregid(-1, (X))
+# define HAVE_SETEGID
 #endif
 
 #ifdef HAVE_SYS_RESOURCE_H
@@ -510,7 +565,7 @@ struct timezone {
 # define RLIMIT_VMEM RLIMIT_AS
 #endif
 
-#ifdef HAVE_SYS_CAPABILITY_H
+#if defined(HAVE_SYS_CAPABILITY_H) && defined(HAVE_CAP_GET_PROC)
 # include <sys/capability.h>
 #endif
 
@@ -728,7 +783,8 @@ extern char **environ;
  * We always need setenv and unsetenv in pairs, because
  * we don't know how to do memory management on the values set.
  */
-#if defined(HAVE_SETENV) && defined(HAVE_UNSETENV) && !defined(__APPLE__)
+#if defined(HAVE_SETENV) && defined(HAVE_UNSETENV) \
+    && !defined(SETENV_MANGLES_EQUAL)
 # define USE_SET_UNSET_ENV
 #endif
 

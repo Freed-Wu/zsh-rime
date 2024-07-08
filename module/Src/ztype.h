@@ -43,7 +43,7 @@
 #define IWSEP    (1 << 13)
 #define INULL    (1 << 14)
 #define IPATTERN (1 << 15)
-#define zistype(X,Y) (typtab[STOUC(X)] & Y)
+#define zistype(X,Y) (typtab[(unsigned char) (X)] & Y)
 #define idigit(X) zistype(X,IDIGIT)
 #define ialnum(X) zistype(X,IALNUM)
 #define iblank(X) zistype(X,IBLANK)	/* blank, not including \n */
@@ -66,7 +66,7 @@
  * shell initialisation.
  */
 #define ZTF_INIT     (0x0001) /* One-off initialisation done */
-#define ZTF_INTERACT (0x0002) /* Shell interative and reading from stdin */
+#define ZTF_INTERACT (0x0002) /* Shell interactive and reading from stdin */
 #define ZTF_SP_COMMA (0x0004) /* Treat comma as a special characters */
 #define ZTF_BANGCHAR (0x0008) /* Treat bangchar as a special character */
 

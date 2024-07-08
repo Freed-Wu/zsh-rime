@@ -35,7 +35,7 @@
 	to call zalloc/zshcalloc, which call malloc/calloc directly.  It
 	is legal to call realloc() or free() on memory allocated this way.
 	The second way is to call zhalloc/hcalloc, which allocates memory
-	from one of the memory pools on the heap stack.  Such memory pools
+	from one of the memory pools on the heap stack.  Such memory pools 
 	will automatically created when the heap allocation routines are
 	called.  To be sure that they are freed at appropriate times
 	one should call pushheap() before one starts using heaps and
@@ -1072,19 +1072,6 @@ zrealloc(void *ptr, size_t size)
 # endif
 #endif
 
-#if defined(_BSD) && !defined(STDC_HEADERS)
-# define FREE_RET_T   int
-# define FREE_ARG_T   char *
-# define FREE_DO_RET
-# define MALLOC_RET_T char *
-# define MALLOC_ARG_T size_t
-#else
-# define FREE_RET_T   void
-# define FREE_ARG_T   void *
-# define MALLOC_RET_T void *
-# define MALLOC_ARG_T size_t
-#endif
-
 /* structure for building free list in blocks holding small blocks */
 
 struct m_shdr {
@@ -1120,7 +1107,7 @@ struct m_hdr {
 /* length of memory header, length of first field of memory header and
    minimal size of a block left free (if we allocate memory and take a
    block from the free list that is larger than needed, it must have at
-   least M_MIN extra bytes to be splitted; if it has, the rest is put on
+   least M_MIN extra bytes to be split; if it has, the rest is put on
    the free list) */
 
 #define M_HSIZE (sizeof(struct m_hdr))
@@ -1198,8 +1185,8 @@ static struct m_hdr *m_l;
 
 #endif /* ZSH_MEM_DEBUG */
 
-MALLOC_RET_T
-malloc(MALLOC_ARG_T size)
+void *
+malloc(size_t size)
 {
     struct m_hdr *m, *mp, *mt;
     long n, s, os = 0;
@@ -1209,7 +1196,7 @@ malloc(MALLOC_ARG_T size)
 
     /* some systems want malloc to return the highest valid address plus one
        if it is called with an argument of zero.
-
+    
        TODO: really?  Suppose we allocate more memory, so
        that this is now in bounds, then a more rational application
        that thinks it can free() anything it malloc'ed, even
@@ -1226,7 +1213,7 @@ malloc(MALLOC_ARG_T size)
 #if 1
 	size = 1;
 #else
-	return (MALLOC_RET_T) m_high;
+	return (void *) m_high;
 #endif
 
     queue_signals();  /* just queue signals rather than handling them */
@@ -1264,7 +1251,7 @@ malloc(MALLOC_ARG_T size)
 	    m->free = sh->next;
 	    m->used++;
 
-	    /* if all small blocks in this block are allocated, the block is
+	    /* if all small blocks in this block are allocated, the block is 
 	       put at the end of the list blocks with small blocks of this
 	       size (i.e., we try to keep blocks with free blocks at the
 	       beginning of the list, to make the search faster) */
@@ -1284,7 +1271,7 @@ malloc(MALLOC_ARG_T size)
 #endif
 
 	    unqueue_signals();
-	    return (MALLOC_RET_T) sh;
+	    return (void *) sh;
 	}
 	/* we still want a small block but there were no block with a free
 	   small block of the requested size; so we use the real allocation
@@ -1426,14 +1413,14 @@ malloc(MALLOC_ARG_T size)
 #endif
 
 	unqueue_signals();
-	return (MALLOC_RET_T) (((char *)m) + sizeof(struct m_hdr));
+	return (void *) (((char *)m) + sizeof(struct m_hdr));
     }
 #ifdef ZSH_MEM_DEBUG
     m_m[m->len < (1024 * M_ISIZE) ? (m->len / M_ISIZE) : 1024]++;
 #endif
 
     unqueue_signals();
-    return (MALLOC_RET_T) & m->next;
+    return (void *) & m->next;
 }
 
 /* this is an internal free(); the second argument may, but need not hold
@@ -1640,14 +1627,10 @@ zfree(void *p, int sz)
     unqueue_signals();
 }
 
-FREE_RET_T
-free(FREE_ARG_T p)
+void
+free(void *p)
 {
     zfree(p, 0);		/* 0 means: size is unknown */
-
-#ifdef FREE_DO_RET
-    return 0;
-#endif
 }
 
 /* this one is for strings (and only strings, real strings, real C strings,
@@ -1661,8 +1644,8 @@ zsfree(char *p)
 	zfree(p, strlen(p) + 1);
 }
 
-MALLOC_RET_T
-realloc(MALLOC_RET_T p, MALLOC_ARG_T size)
+void *
+realloc(void *p, size_t size)
 {
     struct m_hdr *m = (struct m_hdr *)(((char *)p) - M_ISIZE), *mt;
     char *r;
@@ -1673,12 +1656,12 @@ realloc(MALLOC_RET_T p, MALLOC_ARG_T size)
 	queue_signals();
 	r = malloc(size);
 	unqueue_signals();
-	return (MALLOC_RET_T) r;
+	return (void *) r;
     }
 
     /* and some systems even do this... */
     if (!p || !size)
-	return (MALLOC_RET_T) p;
+	return p;
 
     queue_signals();  /* just queue signals caught rather than handling them */
 
@@ -1707,23 +1690,29 @@ realloc(MALLOC_RET_T p, MALLOC_ARG_T size)
     free(p);
 
     unqueue_signals();
-    return (MALLOC_RET_T) r;
+    return (void *) r;
 }
 
-MALLOC_RET_T
-calloc(MALLOC_ARG_T n, MALLOC_ARG_T size)
+void *
+calloc(size_t n, size_t size)
 {
     long l;
     char *r;
 
     if (!(l = n * size))
-	return (MALLOC_RET_T) m_high;
+	return (void *) m_high;
 
-    r = malloc(l);
+    /*
+     * use realloc() (with a NULL `p` argument it behaves exactly the same
+     * as malloc() does) to prevent an infinite loop caused by sibling-call
+     * optimizations (the malloc() call would otherwise be replaced by an
+     * unconditional branch back to line 1719 ad infinitum).
+     */
+    r = realloc(NULL, l);
 
     memset(r, 0, l);
 
-    return (MALLOC_RET_T) r;
+    return (void *) r;
 }
 
 #ifdef ZSH_MEM_DEBUG
@@ -1879,16 +1868,14 @@ bin_mem(char *name, char **argv, Options ops, int func)
 mod_export void
 zfree(void *p, UNUSED(int sz))
 {
-    if (p)
-	free(p);
+    free(p);
 }
 
 /**/
 mod_export void
 zsfree(char *p)
 {
-    if (p)
-	free(p);
+    free(p);
 }
 
 /**/

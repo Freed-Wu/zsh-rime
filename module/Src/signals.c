@@ -537,6 +537,23 @@ wait_for_processes(void)
 #else
 		update_process(pn, status);
 #endif
+		if (WIFEXITED(status) &&
+		    pn->pid == jn->gleader &&
+		    killpg(pn->pid, 0) == -1) {
+		    if (last_attached_pgrp == jn->gleader &&
+			!(jn->stat & STAT_NOSTTY)) {
+			/*
+			 * This PID was in control of the terminal;
+			 * reclaim terminal now it has exited.
+			 * It's still possible some future forked
+			 * process of this job will become group
+			 * leader, however.
+			 */
+			attachtty(mypgrp);
+			adjustwinsize(0);
+		    }
+		    jn->gleader = 0;
+		}
 	    }
 	    update_job(jn);
 	} else if (findproc(pid, &jn, &pn, 1)) {
@@ -573,7 +590,7 @@ wait_for_processes(void)
 /* the signal handler */
 
 /**/
-mod_export RETSIGTYPE
+mod_export void
 zhandler(int sig)
 {
     sigset_t newmask, oldmask;
@@ -637,7 +654,7 @@ zhandler(int sig)
 		_exit(SIGPIPE);
 	    else if (!isatty(SHTTY)) {
 		stopmsg = 1;
-		zexit(SIGPIPE, 1);
+		zexit(SIGPIPE, ZEXIT_SIGNAL);
 	    }
 	}
 	break;
@@ -645,15 +662,15 @@ zhandler(int sig)
     case SIGHUP:
         if (!handletrap(SIGHUP)) {
             stopmsg = 1;
-            zexit(SIGHUP, 1);
+            zexit(SIGHUP, ZEXIT_SIGNAL);
         }
         break;
 
     case SIGINT:
         if (!handletrap(SIGINT)) {
 	    if ((isset(PRIVILEGED) || isset(RESTRICTED)) &&
-		isset(INTERACTIVE) && noerrexit < 0)
-		zexit(SIGINT, 1);
+		isset(INTERACTIVE) && (noerrexit & NOERREXIT_SIGNAL))
+		zexit(SIGINT, ZEXIT_SIGNAL);
             if (list_pipe || chline || simple_pline) {
                 breaks = loops;
                 errflag |= ERRFLAG_INT;
@@ -686,7 +703,7 @@ zhandler(int sig)
 		errflag = noerrs = 0;
 		zwarn("timeout");
 		stopmsg = 1;
-		zexit(SIGALRM, 1);
+		zexit(SIGALRM, ZEXIT_SIGNAL);
 	    }
         }
         break;
@@ -765,7 +782,20 @@ killjb(Job jn, int sig)
 		    if (kill(pn->pid, sig) == -1 && errno != ESRCH)
 			err = -1;
 
-                return err;
+		/*
+		 * The following marks both the superjob and subjob
+		 * as running, as done elsewhere.
+		 *
+		 * It's not entirely clear to me what the right way
+		 * to flag the status of a still-pausd final process,
+		 * as handled above, but we should be cnsistent about
+		 * this inside makerunning() rather than doing anything
+		 * special here.
+		 */
+		if (err != -1)
+		    makerunning(jn);
+
+		return err;
             }
             if (killpg(jobtab[jn->other].gleader, sig) == -1 && errno != ESRCH)
 		err = -1;
@@ -775,12 +805,27 @@ killjb(Job jn, int sig)
 
 	    return err;
         }
-        else
-	    return killpg(jn->gleader, sig);
+        else {
+	    err = killpg(jn->gleader, sig);
+	    if (sig == SIGCONT && err != -1)
+		makerunning(jn);
+	}
     }
-    for (pn = jn->procs; pn; pn = pn->next)
-        if ((err = kill(pn->pid, sig)) == -1 && errno != ESRCH && sig != 0)
-            return -1;
+    for (pn = jn->procs; pn; pn = pn->next) {
+	/*
+	 * Do not kill this job's process if it's already dead as its
+	 * pid could have been reused by the system.
+	 * As the PID doesn't exist don't return an error.
+	 */
+	if (pn->status == SP_RUNNING || WIFSTOPPED(pn->status)) {
+	    /*
+	     * kill -0 on a job is pointless. We still call kill() for each process
+	     * in case the user cares about it but we ignore its outcome.
+	     */
+	    if ((err = kill(pn->pid, sig)) == -1 && errno != ESRCH && sig != 0)
+		return -1;
+	}
+    }
     return err;
 }
 
@@ -966,10 +1011,6 @@ removetrap(int sig)
 	(!trapped || locallevel > (sigtrapped[sig] >> ZSIG_SHIFT)))
 	dosavetrap(sig, locallevel);
 
-    if (!trapped) {
-	unqueue_signals();
-        return NULL;
-    }
     if (sigtrapped[sig] & ZSIG_TRAPPED)
 	nsigtrapped--;
     sigtrapped[sig] = 0;

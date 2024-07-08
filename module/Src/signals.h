@@ -27,7 +27,7 @@
  *
  */
 
-#define SIGNAL_HANDTYPE RETSIGTYPE (*)_((int))
+#define SIGNAL_HANDTYPE void (*)_((int))
 
 #ifndef HAVE_KILLPG
 # define killpg(pgrp,sig) kill(-(pgrp),sig)
@@ -55,7 +55,7 @@
 # define sigdelset(s,n)    (*(s) &= ~(1 << ((n) - 1)), 0)
 # define sigismember(s,n)  ((*(s) & (1 << ((n) - 1))) != 0)
 #endif   /* ifndef POSIX_SIGNALS */
-
+ 
 #define child_block()      signal_block(sigchld_mask)
 #define child_unblock()    signal_unblock(sigchld_mask)
 

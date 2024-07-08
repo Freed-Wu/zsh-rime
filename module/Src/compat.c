@@ -30,8 +30,8 @@
 #include "zsh.mdh"
 #include "compat.pro"
 
-/* Return pointer to first occurence of string t *
- * in string s.  Return NULL if not present.     */
+/* Return pointer to first occurrence of string t *
+ * in string s.  Return NULL if not present.      */
 
 /**/
 #ifndef HAVE_STRSTR
@@ -92,6 +92,65 @@ gettimeofday(struct timeval *tv, struct timezone *tz)
 
 /**/
 #endif
+
+
+/* Provide clock time with nanoseconds */
+
+/**/
+mod_export int
+zgettime(struct timespec *ts)
+{
+    int ret = -1;
+
+#ifdef HAVE_CLOCK_GETTIME
+    struct timespec dts;
+    if (clock_gettime(CLOCK_REALTIME, &dts) < 0) {
+	zwarn("unable to retrieve time: %e", errno);
+	ret--;
+    } else {
+	ret++;
+	ts->tv_sec = (time_t) dts.tv_sec;
+	ts->tv_nsec = (long) dts.tv_nsec;
+    }
+#endif
+
+    if (ret) {
+	struct timeval dtv;
+	struct timezone dtz;
+	gettimeofday(&dtv, &dtz);
+	ret++;
+	ts->tv_sec = (time_t) dtv.tv_sec;
+	ts->tv_nsec = (long) dtv.tv_usec * 1000;
+    }
+
+    return ret;
+}
+
+/* Likewise with CLOCK_MONOTONIC if available. */
+
+/**/
+mod_export int
+zgettime_monotonic_if_available(struct timespec *ts)
+{
+    int ret = -1;
+
+#if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
+    struct timespec dts;
+    if (clock_gettime(CLOCK_MONOTONIC, &dts) < 0) {
+	zwarn("unable to retrieve CLOCK_MONOTONIC time: %e", errno);
+	ret--;
+    } else {
+	ret++;
+	ts->tv_sec = (time_t) dts.tv_sec;
+	ts->tv_nsec = (long) dts.tv_nsec;
+    }
+#endif
+
+    if (ret) {
+	ret = zgettime(ts);
+    }
+    return ret;
+}
 
 
 /* compute the difference between two calendar times */
@@ -328,8 +387,18 @@ zgetdir(struct dirsav *d)
 	pino = sbuf.st_ino;
 	pdev = sbuf.st_dev;
 
-	/* If they're the same, we've reached the root directory. */
+	/* If they're the same, we've reached the root directory... */
 	if (ino == pino && dev == pdev) {
+	    /*
+	     * ...well, probably.  If this was an orphaned . after
+	     * an unmount, or something such, we could be in trouble...
+	     */
+	    if (stat("/", &sbuf) < 0 ||
+		sbuf.st_ino != ino ||
+		sbuf.st_dev != dev) {
+		zerr("Failed to get current directory: path invalid");
+		return NULL;
+	    }
 	    if (!buf[pos])
 		buf[--pos] = '/';
 	    if (d) {
@@ -453,7 +522,7 @@ zgetdir(struct dirsav *d)
  */
 
 /**/
-char *
+mod_export char *
 zgetcwd(void)
 {
     char *ret = zgetdir(NULL);
@@ -476,7 +545,7 @@ zgetcwd(void)
 #endif /* HAVE_GETCWD */
     if (!ret)
 	ret = unmeta(pwd);
-    if (!ret)
+    if (!ret || *ret == '\0')
 	ret = dupstring(".");
     return ret;
 }

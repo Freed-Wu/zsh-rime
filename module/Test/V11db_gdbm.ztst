@@ -1,4 +1,4 @@
-# Tests for zdharma/zgdbm module
+# Tests for the zsh/param/private module
 
 %prep
 

@@ -213,6 +213,7 @@ $(makefile).in: $(sdir_src)/mkmakemod.sh $(sdir_src)/Makemod.in.in $(MDDS) \
 	cd $(dir_top) && \
 	    $(SHELL) $$top_srcdir/Src/mkmakemod.sh -i $(subdir) $(makefile)
 
+
 ##### ===== DEPENDENCIES GENERATED FROM rime.mdd ===== #####
 
 MODOBJS_rime = rime.o
@@ -238,11 +239,11 @@ install.modules-here: install.modules.rime
 uninstall.modules-here: uninstall.modules.rime
 
 install.modules.rime: rime.$(DL_EXT)
-	$(SHELL) $(sdir_top)/mkinstalldirs $(DESTDIR)$(MODDIR)/zdharma
-	$(INSTALL_PROGRAM) $(STRIPFLAGS) rime.$(DL_EXT) $(DESTDIR)$(MODDIR)/zdharma/rime.$(DL_EXT)
+	$(SHELL) $(sdir_top)/mkinstalldirs $(DESTDIR)$(MODDIR)/zi
+	$(INSTALL_PROGRAM) $(STRIPFLAGS) rime.$(DL_EXT) $(DESTDIR)$(MODDIR)/zi/rime.$(DL_EXT)
 
 uninstall.modules.rime:
-	rm -f $(DESTDIR)$(MODDIR)/zdharma/rime.$(DL_EXT)
+	rm -f $(DESTDIR)$(MODDIR)/zi/rime.$(DL_EXT)
 
 rime.$(DL_EXT): $(MODDOBJS_rime) rime.export  $(dir_top)/Src/zsh.export $(@LINKMODS@_rime)
 	rm -f $@
@@ -269,23 +270,23 @@ rime.mdh:  $(dir_top)/Src/zsh.mdh   rime.mdhi
 
 rime.mdh.tmp:
 	@( \
-	    echo '#ifndef have_zdharmaQsrime_module'; \
-	    echo '#define have_zdharmaQsrime_module'; \
+	    echo '#ifndef have_ziQsrime_module'; \
+	    echo '#define have_ziQsrime_module'; \
 	    echo; \
-	    echo '# ifndef IMPORTING_MODULE_zdharmaQsrime'; \
+	    echo '# ifndef IMPORTING_MODULE_ziQsrime'; \
 	    if test @SHORTBOOTNAMES@ = yes; then \
 		echo '#  ifndef MODULE'; \
 	    fi; \
-	    echo '#   define boot_ boot_zdharmaQsrime'; \
-	    echo '#   define cleanup_ cleanup_zdharmaQsrime'; \
-	    echo '#   define features_ features_zdharmaQsrime'; \
-	    echo '#   define enables_ enables_zdharmaQsrime'; \
-	    echo '#   define setup_ setup_zdharmaQsrime'; \
-	    echo '#   define finish_ finish_zdharmaQsrime'; \
+	    echo '#   define boot_ boot_ziQsrime'; \
+	    echo '#   define cleanup_ cleanup_ziQsrime'; \
+	    echo '#   define features_ features_ziQsrime'; \
+	    echo '#   define enables_ enables_ziQsrime'; \
+	    echo '#   define setup_ setup_ziQsrime'; \
+	    echo '#   define finish_ finish_ziQsrime'; \
 	    if test @SHORTBOOTNAMES@ = yes; then \
 		echo '#  endif /* !MODULE */'; \
 	    fi; \
-	    echo '# endif /* !IMPORTING_MODULE_zdharmaQsrime */'; \
+	    echo '# endif /* !IMPORTING_MODULE_ziQsrime */'; \
 	    echo; \
 	    echo '/* Module dependencies */'; \
 	    echo '# define IMPORTING_MODULE_zshQsmain 1'; \
@@ -293,13 +294,13 @@ rime.mdh.tmp:
 	    echo; \
 	    echo '# undef mod_import_variable'; \
 	    echo '# undef mod_import_function'; \
-	    echo '# if defined(IMPORTING_MODULE_zdharmaQsrime) &&  defined(MODULE)'; \
+	    echo '# if defined(IMPORTING_MODULE_ziQsrime) &&  defined(MODULE)'; \
 	    echo '#  define mod_import_variable @MOD_IMPORT_VARIABLE@'; \
 	    echo '#  define mod_import_function @MOD_IMPORT_FUNCTION@'; \
 	    echo '# else'; \
 	    echo '#  define mod_import_function'; \
 	    echo '#  define mod_import_variable'; \
-	    echo '# endif /* IMPORTING_MODULE_zdharmaQsrime && MODULE */'; \
+	    echo '# endif /* IMPORTING_MODULE_ziQsrime && MODULE */'; \
 	    for epro in $(EPRO_rime); do \
 		echo '# include "'$$epro'"'; \
 	    done; \
@@ -311,7 +312,7 @@ rime.mdh.tmp:
 	    echo '#  define mod_export @MOD_EXPORT@'; \
 	    echo '# endif /* mod_export */'; \
 	    echo; \
-	    echo '#endif /* !have_zdharmaQsrime_module */'; \
+	    echo '#endif /* !have_ziQsrime_module */'; \
 	) > $@
 
 $(MODOBJS_rime) $(MODDOBJS_rime): rime.mdh
