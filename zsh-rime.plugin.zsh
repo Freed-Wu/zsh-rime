@@ -34,11 +34,11 @@ if [[ -e "${RIME_REPO_DIR}/module/Src/zi/rime.so" ]]; then
       rime getCurrentSchema $rime_session_id rime_schema_id &&
       rime getSchemaList $rime_schema_list
     autoload -Uz rime-complete &&
-    zle -C rime-complete expand-or-complete rime-complete
+      zle -C rime-complete expand-or-complete rime-complete
     autoload -Uz rime-next-schema &&
-    zle -N rime-next-schema
+      zle -N rime-next-schema
     autoload -Uz rime-previous-schema &&
-    zle -N rime-previous-schema
+      zle -N rime-previous-schema
 fi
 
 unset RIME_REPO_DIR
