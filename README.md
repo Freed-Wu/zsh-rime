@@ -9,8 +9,9 @@ A video can be found [here](https://asciinema.org/a/660633).
 ## Dependencies
 
 - [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
-- [make](https://www.gnu.org/software/make/)
 - [librime](https://github.com/rime/librime)
+- [make](https://www.gnu.org/software/make/)
+- A C compiler
 
 ## Install
 

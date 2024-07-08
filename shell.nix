@@ -9,5 +9,6 @@ mkShell {
     pkg-config
     ncurses.dev
     librime
+    stdenv.cc
   ];
 }
