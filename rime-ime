@@ -87,13 +87,24 @@ zle -A accept-line rime-ime
 bindkey -N rime main
 zle -N draw-ui-when-preedit
 bindkey -M rime ' ' draw-ui-when-preedit
-local char
-for char in '?' @ _ ^ '[' {A..Z} ; do
-  bindkey -M rime "^$char" draw-ui-when-preedit
+local key
+for key in '?' @ _ ^ '[' {A..Z} '[[A' '[[B' '[[C' '[[D'; do
+  bindkey -M rime "^$key" draw-ui-when-preedit
+done
+zmodload zsh/terminfo 2>/dev/null
+for key in ku kd kl kr kD kI kP kN kh @7 k{1..9} 'k;' F{1..9} F{A..P}; do
+  [[ -n $termcap[$key] ]] &&
+    bindkey -M rime "$termcap[$key]" draw-ui-when-preedit
+done
+zmodload zsh/termcap 2>/dev/null
+for key in kcuu1 kcud1 kcub1 kcuf1 kdch1 kich1 kpp knp khome kend kf{1..35}; do
+  [[ -n $terminfo[$key] ]] &&
+    bindkey -M rime "$terminfo[$key]" draw-ui-when-preedit
 done
 
 zle recursive-edit -K rime
 
+bindkey -D rime
 zle -M ''
 integer stat=$?
 
