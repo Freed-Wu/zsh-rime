@@ -50,6 +50,22 @@ zstyle -s ':rime:ui' left-sep left_sep || left_sep='['
 zstyle -s ':rime:ui' right-sep right_sep || right_sep=']'
 zstyle -s ':rime:ui' cursor cursor || cursor='|'
 zstyle -s ':rime:ui' prompt-len prompt_len || prompt_len=2
+zstyle -a ':rime:traits' shared-data-dirs shared_data_dirs ||
+  shared_data_dirs=(${PREFIX:-/usr}/share/rime-data /usr/local/share/rime-data /run/current-system/sw/share/rime-data /sdcard/rime-data)
+zstyle -a ':rime:traits' user-data-dirs user_data_dirs ||
+  user_data_dirs=($HOME/.config/ibus/rime $HOME/.local/share/fcitx5/rime $HOME/.config/fcitx/rime /sdcard/rime)
+zstyle -s ':rime:traits' log-dir log_dir ||
+  log_dir=${TMPPREFIX:-/tmp/zsh}/rime
+zstyle -s ':rime:traits' distribution-name distribution_name ||
+  distribution_name=Rime
+zstyle -s ':rime:traits' distribution-code-name distribution_code_name ||
+  distribution_code_name=zsh-rime
+zstyle -s ':rime:traits' distribution-version distribution_version ||
+  distribution_version=0.0.1
+zstyle -s ':rime:traits' app-name app_name ||
+  app_name=rime.zsh-rime
+zstyle -s ':rime:traits' min-log-level min_log_level ||
+  min_log_level=3
 ```
 
 ## Integrate

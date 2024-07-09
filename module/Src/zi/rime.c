@@ -26,9 +26,8 @@
  * support, updates, enhancements, or modifications.
  *
  */
-#include <dirent.h>
+#include <stdio.h>
 #include <rime_api.h>
-#include <wordexp.h>
 
 #include "rime.mdh"
 #include "rime.pro"
@@ -40,22 +39,29 @@ static struct builtin bintab[] = {
     BUILTIN("rime", 0, rime, 0, -1, 0, "", NULL),
 };
 
-#define GET_NUMBER(arg, var)                             \
-do {                                                     \
-    if (arg == NULL) {                                   \
-	fputs("missing " #var, stderr);                  \
-	return EXIT_FAILURE;                             \
-    }                                                    \
-    var = zstrtol(arg, NULL, 0);                         \
+#define CHECK_NOT_NULL(arg, var)                                \
+do {                                                            \
+    if (arg == NULL) {                                          \
+	fputs("missing " #var, stderr);                         \
+	return EXIT_FAILURE;                                    \
+    }                                                           \
 } while (0);
 
-#define GET_POSITIVE_NUMBER(arg, var)                    \
-do {                                                     \
-    GET_NUMBER(arg, var);                                \
-    if (var == 0) {                                      \
-	fprintf(stderr, "%s is not a legal " #var, arg); \
-	return EXIT_FAILURE;                             \
-    }                                                    \
+#define GET_NUMBER(arg, var)                                    \
+do {                                                            \
+    char *_arg = arg;                                           \
+    CHECK_NOT_NULL(_arg, var);                                  \
+    var = zstrtol(_arg, NULL, 0);                               \
+} while (0);
+
+#define GET_POSITIVE_NUMBER(arg, var)                           \
+do {                                                            \
+    char *__arg = arg;                                          \
+    GET_NUMBER(__arg, var);                                     \
+    if (var == 0) {                                             \
+	fprintf(stderr, "%s is not a legal " #var "\n", __arg); \
+	return EXIT_FAILURE;                                    \
+    }                                                           \
 } while (0);
 
 /**/
@@ -79,68 +85,45 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
     }
     if (ztrcmp(args[0], "init") == 0) {
 	RIME_STRUCT(RimeTraits, rime_traits);
-	char shared_data_dirs[][DEFAULT_BUFFER_SIZE] = {
-	    "",
-	    "/run/current-system/sw/share/rime-data",
-	    "/usr/share/rime-data",
-	    "/usr/local/share/rime-data",
-	    "/sdcard/rime-data",
-	};
-	char *prefix = getenv("PREFIX");
-	char log_dir[DEFAULT_BUFFER_SIZE];
-	if (prefix) {
-	    ztrncpy(prefix, log_dir, strlen(prefix));
-	    ztrncpy("/tmp/zsh-rime", log_dir + strlen(prefix), sizeof("/tmp/zsh-rime") - 1);
-	    rime_traits.log_dir = log_dir;
-	    // ignore sucess of failure
-	    mkdir(rime_traits.log_dir, 0777);
-	    ztrncpy(prefix, shared_data_dirs[0], strlen(prefix));
-	    ztrncpy("/share/rime-data", shared_data_dirs[0] + strlen(prefix), sizeof("/share/rime-data") - 1);
-	}
-	zsfree(prefix);
-	unsigned int i;
-	for (i = 0; i < sizeof(shared_data_dirs)/sizeof(shared_data_dirs[0]); i++) {
-	    DIR *dir = opendir(shared_data_dirs[i]);
-	    if (dir) {
-		closedir(dir);
-		rime_traits.shared_data_dir = shared_data_dirs[i];
-		break;
-	    }
-	}
-	if (rime_traits.shared_data_dir == NULL) {
-	    fputs("no any shared_data_dir!", stderr);
-	    return EXIT_FAILURE;
-	}
 
-	char user_data_dirs[][DEFAULT_BUFFER_SIZE] = {
-	    "~/.config/ibus/rime",
-	    "~/.local/share/fcitx5/rime",
-	    "~/.config/fcitx/rime",
-	    "/sdcard/rime",
-	};
-	for (i = 0; i < sizeof(user_data_dirs)/sizeof(user_data_dirs[0]); i++) {
-	    wordexp_t exp;
-	    if (wordexp(user_data_dirs[i], &exp, 0) != 0)
-		continue;
-	    DIR *dir = opendir(exp.we_wordv[0]);
-	    if (dir) {
-		closedir(dir);
-		rime_traits.user_data_dir = strdup(exp.we_wordv[0]);
-		wordfree(&exp);
-		break;
-	    }
-	    wordfree(&exp);
-	}
-	if (rime_traits.user_data_dir == NULL) {
-	    fputs("no any user_data_dir!", stderr);
-	    return EXIT_FAILURE;
-	}
-
-	rime_traits.distribution_name = "Rime";
-	rime_traits.distribution_code_name = "zsh-rime";
-	rime_traits.distribution_version = "0.0.1";
-	rime_traits.app_name = "rime.zsh-rime";
-	rime_traits.min_log_level = 3;
+  unsigned int i = 1;
+  while (args[i]) {
+    if (ztrcmp(args[i], "shared_data_dir") == 0) {
+      rime_traits.shared_data_dir = args[++i];
+    }
+    else if (ztrcmp(args[i], "user_data_dir") == 0) {
+      rime_traits.user_data_dir = args[++i];
+    }
+    else if (ztrcmp(args[i], "log_dir") == 0) {
+      rime_traits.log_dir = args[++i];
+    }
+    else if (ztrcmp(args[i], "distribution_name") == 0) {
+      rime_traits.distribution_name = args[++i];
+    }
+    else if (ztrcmp(args[i], "distribution_code_name") == 0) {
+      rime_traits.distribution_code_name = args[++i];
+    }
+    else if (ztrcmp(args[i], "distribution_version") == 0) {
+      rime_traits.distribution_version = args[++i];
+    }
+    else if (ztrcmp(args[i], "app_name") == 0) {
+      rime_traits.app_name = args[++i];
+    }
+    else if (ztrcmp(args[i], "min_log_level") == 0) {
+      GET_NUMBER(args[++i], rime_traits.min_log_level);
+    }
+    else {
+      fprintf(stderr, "%s is unknown\n", args[i]);
+    }
+    i++;
+  }
+  CHECK_NOT_NULL(rime_traits.shared_data_dir, shared_data_dir);
+  CHECK_NOT_NULL(rime_traits.user_data_dir, user_data_dir);
+  CHECK_NOT_NULL(rime_traits.log_dir, log_dir);
+  CHECK_NOT_NULL(rime_traits.distribution_name, distribution_name);
+  CHECK_NOT_NULL(rime_traits.distribution_code_name, distribution_code_name);
+  CHECK_NOT_NULL(rime_traits.distribution_version, distribution_version);
+  CHECK_NOT_NULL(rime_traits.app_name, app_name);
 	RimeSetup(&rime_traits);
 	RimeInitialize(&rime_traits);
     }
@@ -156,7 +139,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	zulong session_id;
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	if (!RimeDestroySession(session_id)) {
-	    fprintf(stderr, "failed to destroy session %lu", session_id);
+	    fprintf(stderr, "failed to destroy session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
     }
@@ -165,7 +148,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	char schema_id[DEFAULT_BUFFER_SIZE];
 	if (!(RimeGetCurrentSchema(session_id, schema_id, DEFAULT_BUFFER_SIZE))) {
-	    fprintf(stderr, "failed to get current schema of session %lu", session_id);
+	    fprintf(stderr, "failed to get current schema of session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
 	setsparam(args[2] ? args[2] : "rime_schema_id", ztrdup(schema_id));
@@ -194,7 +177,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	    return EXIT_FAILURE;
 	}
 	if (!RimeSelectSchema(session_id, args[2])) {
-	    fprintf(stderr, "failed to select schema %s for session %lu", args[2], session_id);
+	    fprintf(stderr, "failed to select schema %s for session %lu\n", args[2], session_id);
 	    return EXIT_FAILURE;
 	}
     }
@@ -204,7 +187,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	GET_NUMBER(args[2], keycode);
 	GET_NUMBER(args[3], mask);
 	if (!RimeProcessKey(session_id, keycode, mask)) {
-	    fprintf(stderr, "failed to process key %lu with mask %lu for session %lu", keycode, mask, session_id);
+	    fprintf(stderr, "failed to process key %lu with mask %lu for session %lu\n", keycode, mask, session_id);
 	    return EXIT_FAILURE;
 	}
     }
@@ -213,7 +196,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	RIME_STRUCT(RimeContext, context);
 	if (!(RimeGetContext(session_id, &context))) {
-	    fprintf(stderr, "failed to get context of session %lu", session_id);
+	    fprintf(stderr, "failed to get context of session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
 	char str[DEFAULT_BUFFER_SIZE];
@@ -281,7 +264,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	RIME_STRUCT(RimeCommit, commit);
 	if (!(RimeGetCommit(session_id, &commit))) {
-	    fprintf(stderr, "failed to get commit of session %lu", session_id);
+	    fprintf(stderr, "failed to get commit of session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
 	char **val, **ptr = val = (char **)zalloc((1 + 1) * 2 * sizeof(char *));
