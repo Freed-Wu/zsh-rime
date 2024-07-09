@@ -1345,10 +1345,10 @@ local -a modifiers=(
 
 # }}} data #
 
-local modifier keycode=$keys[$2]
-local -i session_id=$1 mask=0
-if [[ -z "$keycode" ]]; then
-  keycode="0x$(printf %x "'$2'")"
+local modifier
+local -i session_id=$1 mask=0 keycode=$keys[$2]
+if (( $keycode == 0 )); then
+  keycode="$(printf %u "'$2'")"
   if (( $keycode == 0x7f )); then
     keycode=$keys[BackSpace]
   elif (( $keycode == 0x1b )); then
