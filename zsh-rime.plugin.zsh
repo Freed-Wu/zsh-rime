@@ -4,8 +4,8 @@
 
 RIME_REPO_DIR="${0:h}"
 
-if (( "${fpath[(I)$RIME_REPO_DIR]}" == 0 )); then
-  fpath+=("$RIME_REPO_DIR")
+if (( fpath[(I)$RIME_REPO_DIR] == 0 )); then
+  fpath+=($RIME_REPO_DIR)
 fi
 
 if [[ ! -e "$RIME_REPO_DIR/module/Src/zi/rime.so" ]]; then
