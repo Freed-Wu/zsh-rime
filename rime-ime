@@ -88,16 +88,16 @@ bindkey -N rime main
 zle -N draw-ui-when-preedit
 bindkey -M rime ' ' draw-ui-when-preedit
 local key
-for key in '?' @ {A..Z} '[' '\' ']' '^' _ '[[A' '[[B' '[[C' '[[D'; do
+for key in {\?.._} '[['{A..D}; do
   bindkey -M rime "^$key" draw-ui-when-preedit
 done
 zmodload zsh/terminfo 2>/dev/null
-for key in ku kd kl kr kD kI kP kN kh @7 k{1..9} 'k;' F{1..9} F{A..P}; do
+for key in k{u,d,l,r,D,I,P,N,h,\;} @7 k{1..9} F{1..9} F{A..P}; do
   [[ -n $termcap[$key] ]] &&
     bindkey -M rime "$termcap[$key]" draw-ui-when-preedit
 done
 zmodload zsh/termcap 2>/dev/null
-for key in kcuu1 kcud1 kcub1 kcuf1 kdch1 kich1 kpp knp khome kend kf{1..35}; do
+for key in kcu{u,d,b,f}1 k{d,i}ch1 k{p,n}p k{home,end} kf{1..35}; do
   [[ -n $terminfo[$key] ]] &&
     bindkey -M rime "$terminfo[$key]" draw-ui-when-preedit
 done
