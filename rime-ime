@@ -66,11 +66,11 @@ draw-ui() {
 
 self-insert() {
   local -i keycode=$(printf %u "'$KEYS'")
-  local -i is_ascii=$(( 0x1f < keycode && keycode < 0x7f ))
-  if (( ! is_ascii )) && [[ -z $preedit ]]; then
+  local -i is_print=$(( 0x1f < keycode && keycode < 0x7f ))
+  if (( ! is_print )) && [[ -z $preedit ]]; then
     zle ${"$(bindkey -M main "$KEYS")"##* }
   else
-    if ! rime-process-key $rime_session_id "$KEYS" && (( is_ascii )); then
+    if ! rime-process-key $rime_session_id "$KEYS" && (( is_print )); then
       LBUFFER+="$KEYS"
     fi
   fi
