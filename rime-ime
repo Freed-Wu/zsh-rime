@@ -70,8 +70,9 @@ self-insert() {
   if (( ! is_ascii )) && [[ -z $preedit ]]; then
     zle ${"$(bindkey -M main "$KEYS")"##* }
   else
-    rime-process-key $rime_session_id "$KEYS" ||
+    if ! rime-process-key $rime_session_id "$KEYS" && (( is_ascii )); then
       LBUFFER+="$KEYS"
+    fi
   fi
   draw-ui $rime_session_id
 }
