@@ -1488,7 +1488,7 @@ if (( $keycode == 0 )); then
       keycode=$keys[F35]
       ;;
   esac
-  if [[ -n $keycode ]]; then
+  if (( keycode == 0 )); then
     keycode="$(printf %u "'$1'")"
     # Alt key
     if (( $#1 != 1 )); then
@@ -1521,6 +1521,7 @@ for modifier; do
   fi
 done
 
+echo rime processKey $session_id $keycode $mask > /dev/shm/t.txt
 rime processKey $session_id $keycode $mask
 
 # ex: filetype=zsh foldmethod=marker
