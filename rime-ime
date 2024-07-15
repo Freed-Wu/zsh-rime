@@ -18,7 +18,6 @@ zstyle -s ':rime:ui' prompt-len prompt_len ||
   prompt_len=2
 
 draw-ui() {
-  rime-process-key $rime_session_id "$@" || LBUFFER+="$@"
   rime getContext $rime_session_id context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
   if (( $#context_menu_candidates_text == 0 )) && rime commitComposition $rime_session_id; then
     rime getCommit $rime_session_id commit
@@ -66,18 +65,17 @@ draw-ui() {
 }
 
 self-insert() {
+  rime-process-key $rime_session_id "$KEYS" || LBUFFER+="$KEYS"
   draw-ui $KEYS
 }
 
 draw-ui-when-preedit() {
   if [[ -n $preedit ]]; then
-    draw-ui $KEYS
-  elif [[ $KEYS == ' ' ]]; then
-    # FIXME: autopair-insert cannot work
-    LBUFFER+=' '
+    rime-process-key $rime_session_id "$KEYS" || LBUFFER+="$KEYS"
   else
     zle ${"$(bindkey -M main "$KEYS")"##* }
   fi
+  draw-ui $KEYS
 }
 
 zle -N self-insert
