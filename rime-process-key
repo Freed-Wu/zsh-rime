@@ -1351,158 +1351,166 @@ shift
 if (( $keycode == 0 )); then
   zmodload zsh/terminfo 2>/dev/null
   zmodload zsh/termcap 2>/dev/null
-  if (( $#1 == 1 )); then
+  case $1 in
+    ($termcap[ku]|$terminfo[kcuu1]|${termcap[ku]//O/\[}))
+      keycode=$keys[Up]
+      ;;
+    ($termcap[kd]|$terminfo[kcud1]|${termcap[kd]//O/\[}))
+      keycode=$keys[Down]
+      ;;
+    ($termcap[kl]|$terminfo[kcub1]|${termcap[kl]//O/\[}))
+      keycode=$keys[Left]
+      ;;
+    ($termcap[kr]|$terminfo[kcuf1]|${termcap[kr]//O/\[}))
+      keycode=$keys[Right]
+      ;;
+    ($termcap[kD]|$terminfo[kdch1]))
+      keycode=$keys[Delete]
+      ;;
+    ($termcap[kI]|$terminfo[kich1]))
+      keycode=$keys[Insert]
+      ;;
+    ($termcap[kP]|$terminfo[kpp]))
+      keycode=$keys[Page_Up]
+      ;;
+    ($termcap[kN]|$terminfo[knp]))
+      keycode=$keys[Page_Down]
+      ;;
+    ($termcap[kh]|$terminfo[khome]))
+      keycode=$keys[Home]
+      ;;
+    ($termcap[@7]|$terminfo[kend]))
+      keycode=$keys[End]
+      ;;
+    ($termcap[k1]|$terminfo[kf1]))
+      keycode=$keys[F1]
+      ;;
+    ($termcap[k2]|$terminfo[kf2]))
+      keycode=$keys[F2]
+      ;;
+    ($termcap[k3]|$terminfo[kf3]))
+      keycode=$keys[F3]
+      ;;
+    ($termcap[k4]|$terminfo[kf4]))
+      keycode=$keys[F4]
+      ;;
+    ($termcap[k5]|$terminfo[kf5]))
+      keycode=$keys[F5]
+      ;;
+    ($termcap[k6]|$terminfo[kf6]))
+      keycode=$keys[F6]
+      ;;
+    ($termcap[k7]|$terminfo[kf7]))
+      keycode=$keys[F7]
+      ;;
+    ($termcap[k8]|$terminfo[kf8]))
+      keycode=$keys[F8]
+      ;;
+    ($termcap[k9]|$terminfo[kf9]))
+      keycode=$keys[F9]
+      ;;
+    ($termcap[k\;]|$terminfo[kf10]))
+      keycode=$keys[F10]
+      ;;
+    ($termcap[F1]|$terminfo[kf11]))
+      keycode=$keys[F11]
+      ;;
+    ($termcap[F2]|$terminfo[kf12]))
+      keycode=$keys[F12]
+      ;;
+    ($termcap[F3]|$terminfo[kf13]))
+      keycode=$keys[F13]
+      ;;
+    ($termcap[F4]|$terminfo[kf14]))
+      keycode=$keys[F14]
+      ;;
+    ($termcap[F5]|$terminfo[kf15]))
+      keycode=$keys[F15]
+      ;;
+    ($termcap[F6]|$terminfo[kf16]))
+      keycode=$keys[F16]
+      ;;
+    ($termcap[F7]|$terminfo[kf17]))
+      keycode=$keys[F17]
+      ;;
+    ($termcap[F8]|$terminfo[kf18]))
+      keycode=$keys[F18]
+      ;;
+    ($termcap[F9]|$terminfo[kf19]))
+      keycode=$keys[F19]
+      ;;
+    ($termcap[FA]|$terminfo[kf20]))
+      keycode=$keys[F20]
+      ;;
+    ($termcap[FB]|$terminfo[kf21]))
+      keycode=$keys[F21]
+      ;;
+    ($termcap[FC]|$terminfo[kf22]))
+      keycode=$keys[F22]
+      ;;
+    ($termcap[FD]|$terminfo[kf23]))
+      keycode=$keys[F23]
+      ;;
+    ($termcap[FE]|$terminfo[kf24]))
+      keycode=$keys[F24]
+      ;;
+    ($termcap[FF]|$terminfo[kf25]))
+      keycode=$keys[F25]
+      ;;
+    ($termcap[FG]|$terminfo[kf26]))
+      keycode=$keys[F26]
+      ;;
+    ($termcap[FH]|$terminfo[kf27]))
+      keycode=$keys[F27]
+      ;;
+    ($termcap[FI]|$terminfo[kf28]))
+      keycode=$keys[F28]
+      ;;
+    ($termcap[FJ]|$terminfo[kf29]))
+      keycode=$keys[F29]
+      ;;
+    ($termcap[FK]|$terminfo[kf30]))
+      keycode=$keys[F30]
+      ;;
+    ($termcap[FL]|$terminfo[kf31]))
+      keycode=$keys[F31]
+      ;;
+    ($termcap[FM]|$terminfo[kf32]))
+      keycode=$keys[F32]
+      ;;
+    ($termcap[FN]|$terminfo[kf33]))
+      keycode=$keys[F33]
+      ;;
+    ($termcap[FO]|$terminfo[kf34]))
+      keycode=$keys[F34]
+      ;;
+    ($termcap[FP]|$terminfo[kf35]))
+      keycode=$keys[F35]
+      ;;
+  esac
+  if [[ -n $keycode ]]; then
     keycode="$(printf %u "'$1'")"
-    if (( $keycode == 0x7f )); then
+    # Alt key
+    if (( $#1 != 1 )); then
+      if (( keycode == 0x1b )); then
+        local key=${1[2,-1]}
+        shift
+        set -- $key $@ Alt
+      fi
+      keycode="$(printf %u "'$1'")"
+    fi
+    if (( keycode == 0x7f )); then
       keycode=$keys[BackSpace]
-    elif (( $keycode == 0x1b )); then
+    elif (( keycode == 0x1b )); then
       keycode=$keys[Escape]
-    elif (( $keycode == 0xd )); then
+    elif (( keycode == 0xd )); then
       keycode=$keys[Return]
-    elif (( $keycode == 0x9 )); then
+    elif (( keycode == 0x9 )); then
       keycode=$keys[Tab]
-    elif (( $keycode < 0x20 )); then
+    elif (( keycode < 0x20 )); then
       keycode=$(( keycode + 0x60 ))
       set -- "$@" Control
     fi
-  else
-    case $1 in
-      ($termcap[ku]|$terminfo[kcuu1]|${termcap[ku]//O/\[}))
-        keycode=$keys[Up]
-        ;;
-      ($termcap[kd]|$terminfo[kcud1]|${termcap[kd]//O/\[}))
-        keycode=$keys[Down]
-        ;;
-      ($termcap[kl]|$terminfo[kcub1]|${termcap[kl]//O/\[}))
-        keycode=$keys[Left]
-        ;;
-      ($termcap[kr]|$terminfo[kcuf1]|${termcap[kr]//O/\[}))
-        keycode=$keys[Right]
-        ;;
-      ($termcap[kD]|$terminfo[kdch1]))
-        keycode=$keys[Delete]
-        ;;
-      ($termcap[kI]|$terminfo[kich1]))
-        keycode=$keys[Insert]
-        ;;
-      ($termcap[kP]|$terminfo[kpp]))
-        keycode=$keys[Page_Up]
-        ;;
-      ($termcap[kN]|$terminfo[knp]))
-        keycode=$keys[Page_Down]
-        ;;
-      ($termcap[kh]|$terminfo[khome]))
-        keycode=$keys[Home]
-        ;;
-      ($termcap[@7]|$terminfo[kend]))
-        keycode=$keys[End]
-        ;;
-      ($termcap[k1]|$terminfo[kf1]))
-        keycode=$keys[F1]
-        ;;
-      ($termcap[k2]|$terminfo[kf2]))
-        keycode=$keys[F2]
-        ;;
-      ($termcap[k3]|$terminfo[kf3]))
-        keycode=$keys[F3]
-        ;;
-      ($termcap[k4]|$terminfo[kf4]))
-        keycode=$keys[F4]
-        ;;
-      ($termcap[k5]|$terminfo[kf5]))
-        keycode=$keys[F5]
-        ;;
-      ($termcap[k6]|$terminfo[kf6]))
-        keycode=$keys[F6]
-        ;;
-      ($termcap[k7]|$terminfo[kf7]))
-        keycode=$keys[F7]
-        ;;
-      ($termcap[k8]|$terminfo[kf8]))
-        keycode=$keys[F8]
-        ;;
-      ($termcap[k9]|$terminfo[kf9]))
-        keycode=$keys[F9]
-        ;;
-      ($termcap[k\;]|$terminfo[kf10]))
-        keycode=$keys[F10]
-        ;;
-      ($termcap[F1]|$terminfo[kf11]))
-        keycode=$keys[F11]
-        ;;
-      ($termcap[F2]|$terminfo[kf12]))
-        keycode=$keys[F12]
-        ;;
-      ($termcap[F3]|$terminfo[kf13]))
-        keycode=$keys[F13]
-        ;;
-      ($termcap[F4]|$terminfo[kf14]))
-        keycode=$keys[F14]
-        ;;
-      ($termcap[F5]|$terminfo[kf15]))
-        keycode=$keys[F15]
-        ;;
-      ($termcap[F6]|$terminfo[kf16]))
-        keycode=$keys[F16]
-        ;;
-      ($termcap[F7]|$terminfo[kf17]))
-        keycode=$keys[F17]
-        ;;
-      ($termcap[F8]|$terminfo[kf18]))
-        keycode=$keys[F18]
-        ;;
-      ($termcap[F9]|$terminfo[kf19]))
-        keycode=$keys[F19]
-        ;;
-      ($termcap[FA]|$terminfo[kf20]))
-        keycode=$keys[F20]
-        ;;
-      ($termcap[FB]|$terminfo[kf21]))
-        keycode=$keys[F21]
-        ;;
-      ($termcap[FC]|$terminfo[kf22]))
-        keycode=$keys[F22]
-        ;;
-      ($termcap[FD]|$terminfo[kf23]))
-        keycode=$keys[F23]
-        ;;
-      ($termcap[FE]|$terminfo[kf24]))
-        keycode=$keys[F24]
-        ;;
-      ($termcap[FF]|$terminfo[kf25]))
-        keycode=$keys[F25]
-        ;;
-      ($termcap[FG]|$terminfo[kf26]))
-        keycode=$keys[F26]
-        ;;
-      ($termcap[FH]|$terminfo[kf27]))
-        keycode=$keys[F27]
-        ;;
-      ($termcap[FI]|$terminfo[kf28]))
-        keycode=$keys[F28]
-        ;;
-      ($termcap[FJ]|$terminfo[kf29]))
-        keycode=$keys[F29]
-        ;;
-      ($termcap[FK]|$terminfo[kf30]))
-        keycode=$keys[F30]
-        ;;
-      ($termcap[FL]|$terminfo[kf31]))
-        keycode=$keys[F31]
-        ;;
-      ($termcap[FM]|$terminfo[kf32]))
-        keycode=$keys[F32]
-        ;;
-      ($termcap[FN]|$terminfo[kf33]))
-        keycode=$keys[F33]
-        ;;
-      ($termcap[FO]|$terminfo[kf34]))
-        keycode=$keys[F34]
-        ;;
-      ($termcap[FP]|$terminfo[kf35]))
-        keycode=$keys[F35]
-	;;
-    esac
   fi
 fi
 shift
