@@ -18,9 +18,9 @@ zstyle -s ':rime:ui' prompt-len prompt_len ||
   prompt_len=2
 
 draw-ui() {
-  rime getContext $rime_session_id context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
-  if (( $#context_menu_candidates_text == 0 )) && rime commitComposition $rime_session_id; then
-    rime getCommit $rime_session_id commit
+  rime getContext $1 context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
+  if (( $#context_menu_candidates_text == 0 )) && rime commitComposition $1; then
+    rime getCommit $1 commit
     LBUFFER+=$commit[text]
   fi
   local -i ime_len=$(wc -L <<< $LBUFFER)
@@ -65,17 +65,15 @@ draw-ui() {
 }
 
 self-insert() {
-  rime-process-key $rime_session_id "$KEYS" || LBUFFER+="$KEYS"
-  draw-ui $KEYS
-}
-
-draw-ui-when-preedit() {
-  if [[ -n $preedit ]]; then
-    rime-process-key $rime_session_id "$KEYS" || LBUFFER+="$KEYS"
-  else
+  local -i keycode=$(printf %u "'$KEYS'")
+  local -i is_ascii=$(( 0x1f < keycode && keycode < 0x7f ))
+  if (( ! is_ascii )) && [[ -z $preedit ]]; then
     zle ${"$(bindkey -M main "$KEYS")"##* }
+  else
+    rime-process-key $rime_session_id "$KEYS" ||
+      LBUFFER+="$KEYS"
   fi
-  draw-ui $KEYS
+  draw-ui $rime_session_id
 }
 
 zle -N self-insert
@@ -83,20 +81,19 @@ zle -A rime-ime save-rime-ime
 zle -A accept-line rime-ime
 
 bindkey -N rime main
-zle -N draw-ui-when-preedit
 local key
 for key in {\?.._} '['{\ ..~} '[['{A..D}; do
-  bindkey -M rime "^$key" draw-ui-when-preedit
+  bindkey -M rime "^$key" self-insert
 done
 zmodload zsh/terminfo 2>/dev/null
 for key in k{u,d,l,r,D,I,P,N,h,\;} @7 k{1..9} F{1..9} F{A..P}; do
   [[ -n $termcap[$key] ]] &&
-    bindkey -M rime "$termcap[$key]" draw-ui-when-preedit
+    bindkey -M rime "$termcap[$key]" self-insert
 done
 zmodload zsh/termcap 2>/dev/null
 for key in kcu{u,d,b,f}1 k{d,i}ch1 k{p,n}p k{home,end} kf{1..35}; do
   [[ -n $terminfo[$key] ]] &&
-    bindkey -M rime "$terminfo[$key]" draw-ui-when-preedit
+    bindkey -M rime "$terminfo[$key]" self-insert
 done
 
 zle recursive-edit -K rime
@@ -109,7 +106,7 @@ zle -A .self-insert self-insert
 zle -A save-rime-ime rime-ime
 zle -D save-rime-ime
 
-unfunction self-insert draw-ui draw-ui-when-preedit
+unfunction self-insert draw-ui
 
 (( stat )) && zle send-break
 
