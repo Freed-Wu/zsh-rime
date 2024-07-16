@@ -186,10 +186,8 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	GET_NUMBER(args[2], keycode);
 	GET_NUMBER(args[3], mask);
-	if (!RimeProcessKey(session_id, keycode, mask)) {
-	    fprintf(stderr, "failed to process key %lu with mask %lu for session %lu\n", keycode, mask, session_id);
-	    return EXIT_FAILURE;
-	}
+	if (!RimeProcessKey(session_id, keycode, mask))
+    return EXIT_FAILURE;
     }
     else if (ztrcmp(args[0], "getContext") == 0) {
 	zulong session_id;

@@ -1501,13 +1501,28 @@ if (( $keycode == 0 )); then
     fi
     if (( keycode == 0x7f )); then
       keycode=$keys[BackSpace]
-    elif (( keycode == 0x1b )); then
-      keycode=$keys[Escape]
-    elif (( keycode == 0xd )); then
-      keycode=$keys[Return]
+    elif (( keycode == 0 )); then
+      keycode=$keys[space]
+      set -- "$@" Control
     elif (( keycode == 0x9 )); then
       keycode=$keys[Tab]
-    elif (( keycode < 0x20 )); then
+    elif (( keycode == 0xd )); then
+      keycode=$keys[Return]
+    elif (( keycode == 0x1b )); then
+      keycode=$keys[Escape]
+    elif (( keycode == 0x1c )); then
+      keycode=$keys[backslash]
+      set -- "$@" Control
+    elif (( keycode == 0x1d )); then
+      keycode=$keys[bracketright]
+      set -- "$@" Control
+    elif (( keycode == 0x1e )); then
+      keycode=$keys[6]
+      set -- "$@" Control
+    elif (( keycode == 0x1f )); then
+      keycode=$keys[minus]
+      set -- "$@" Control
+    elif (( keycode < 0x1b )); then
       keycode=$(( keycode + 0x60 ))
       set -- "$@" Control
     fi
@@ -1521,7 +1536,6 @@ for modifier; do
   fi
 done
 
-echo rime processKey $session_id $keycode $mask > /dev/shm/t.txt
 rime processKey $session_id $keycode $mask
 
 # ex: filetype=zsh foldmethod=marker
