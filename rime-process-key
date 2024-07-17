@@ -1352,16 +1352,16 @@ if (( $keycode == 0 )); then
   zmodload zsh/terminfo 2>/dev/null
   zmodload zsh/termcap 2>/dev/null
   case $1 in
-    ($termcap[ku]|$terminfo[kcuu1]|${termcap[ku]//O/\[}))
+    ($termcap[ku]|$terminfo[kcuu1]))
       keycode=$keys[Up]
       ;;
-    ($termcap[kd]|$terminfo[kcud1]|${termcap[kd]//O/\[}))
+    ($termcap[kd]|$terminfo[kcud1]))
       keycode=$keys[Down]
       ;;
-    ($termcap[kl]|$terminfo[kcub1]|${termcap[kl]//O/\[}))
+    ($termcap[kl]|$terminfo[kcub1]))
       keycode=$keys[Left]
       ;;
-    ($termcap[kr]|$terminfo[kcuf1]|${termcap[kr]//O/\[}))
+    ($termcap[kr]|$terminfo[kcuf1]))
       keycode=$keys[Right]
       ;;
     ($termcap[kD]|$terminfo[kdch1]))
