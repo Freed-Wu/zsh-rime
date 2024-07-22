@@ -1,9 +1,15 @@
-local shared_data_dirs user_data_dirs log_dir distribution_name distribution_code_name distribution_version app_name
+local dir shared_data_dir user_data_dir log_dir distribution_name distribution_code_name distribution_version app_name
 local -i min_log_level
-zstyle -a ':rime:traits' shared-data-dirs shared_data_dirs ||
-  shared_data_dirs=(${PREFIX:-/usr}/share/rime-data /usr/local/share/rime-data /run/current-system/sw/share/rime-data /sdcard/rime-data)
-zstyle -a ':rime:traits' user-data-dirs user_data_dirs ||
-  user_data_dirs=($HOME/.config/ibus/rime $HOME/.local/share/fcitx5/rime $HOME/.config/fcitx/rime /sdcard/rime)
+zstyle -a ':rime:traits' shared-data-dir shared_data_dir ||
+  for dir in ${PREFIX:-/usr}/share/rime-data /usr/local/share/rime-data /run/current-system/sw/share/rime-data /sdcard/rime-data; do
+    [[ -d $dir ]] &&
+      shared_data_dir=$dir
+  done
+zstyle -a ':rime:traits' user-data-dir user_data_dir ||
+  for dir in $HOME/.config/ibus/rime $HOME/.local/share/fcitx5/rime $HOME/.config/fcitx/rime /sdcard/rime; do
+    [[ -d $dir ]] &&
+      user_data_dir=$dir
+  done
 zstyle -s ':rime:traits' log-dir log_dir ||
   log_dir=${TMPPREFIX:-/tmp/zsh}/rime
 zstyle -s ':rime:traits' distribution-name distribution_name ||
@@ -17,23 +23,17 @@ zstyle -s ':rime:traits' app-name app_name ||
 zstyle -s ':rime:traits' min-log-level min_log_level ||
   min_log_level=3
 
-local -A traits=()
-local dir
-for dir in $shared_data_dirs; do
-  [[ -d $dir ]] &&
-    traits[shared_data_dir]=$dir
-done
-for dir in $user_data_dirs; do
-  [[ -d $dir ]] &&
-    traits[user_data_dir]=$dir
-done
-traits[log_dir]=$log_dir
+local -A traits=(
+  [shared_data_dir]=$shared_data_dir
+  [user_data_dir]=$user_data_dir
+  [log_dir]=$log_dir
+  [distribution_name]=$distribution_name
+  [distribution_code_name]=$distribution_code_name
+  [distribution_version]=$distribution_version
+  [app_name]=$app_name
+  [min_log_level]=$min_log_level
+)
 mkdir -p $traits[log_dir]
-traits[distribution_name]=$distribution_name
-traits[distribution_code_name]=$distribution_code_name
-traits[distribution_version]=$distribution_version
-traits[app_name]=$app_name
-traits[min_log_level]=$min_log_level
 rime init ${(kv)traits} &&
   rime createSession rime_session_id &&
   rime getCurrentSchema $rime_session_id rime_schema_id &&

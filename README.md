@@ -43,6 +43,7 @@ bindkey "^^" rime-ime
 zstyle -s ":rime:build" cppflags cppf || cppf="-I/usr/local/include"
 zstyle -s ":rime:build" cflags cf || cf="-Wall -O2 -g"
 zstyle -s ":rime:build" ldflags ldf || ldf="-L/usr/local/lib"
+
 zstyle -a ':rime:ui' indices indices || indices=(① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⓪)
 zstyle -s ':rime:ui' left left || left='<|'
 zstyle -s ':rime:ui' right right || right='|>'
@@ -50,10 +51,17 @@ zstyle -s ':rime:ui' left-sep left_sep || left_sep='['
 zstyle -s ':rime:ui' right-sep right_sep || right_sep=']'
 zstyle -s ':rime:ui' cursor cursor || cursor='|'
 zstyle -s ':rime:ui' prompt-len prompt_len || prompt_len=2
-zstyle -a ':rime:traits' shared-data-dirs shared_data_dirs ||
-  shared_data_dirs=(${PREFIX:-/usr}/share/rime-data /usr/local/share/rime-data /run/current-system/sw/share/rime-data /sdcard/rime-data)
-zstyle -a ':rime:traits' user-data-dirs user_data_dirs ||
-  user_data_dirs=($HOME/.config/ibus/rime $HOME/.local/share/fcitx5/rime $HOME/.config/fcitx/rime /sdcard/rime)
+
+zstyle -a ':rime:traits' shared-data-dir shared_data_dir ||
+  for dir in ${PREFIX:-/usr}/share/rime-data /usr/local/share/rime-data /run/current-system/sw/share/rime-data /sdcard/rime-data; do
+    [[ -d $dir ]] &&
+      shared_data_dir=$dir
+  done
+zstyle -a ':rime:traits' user-data-dir user_data_dir ||
+  for dir in $HOME/.config/ibus/rime $HOME/.local/share/fcitx5/rime $HOME/.config/fcitx/rime /sdcard/rime; do
+    [[ -d $dir ]] &&
+      user_data_dir=$dir
+  done
 zstyle -s ':rime:traits' log-dir log_dir ||
   log_dir=${TMPPREFIX:-/tmp/zsh}/rime
 zstyle -s ':rime:traits' distribution-name distribution_name ||
