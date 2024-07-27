@@ -1,6 +1,6 @@
 autoload -Uz rime-process-key || return 1
 
-local indices left right left_sep right_sep cursor preedit
+local indices left right left_sep right_sep cursor special preedit
 local -i prompt_len
 zstyle -a ':rime:ui' indices indices ||
   indices=(① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⓪)
@@ -16,6 +16,16 @@ zstyle -s ':rime:ui' cursor cursor ||
   cursor='|'
 zstyle -s ':rime:ui' prompt-len prompt_len ||
   prompt_len=2
+zstyle -a ':rime:keys' special special ||
+  special=('^'{\?.._} '^['{\ ..~} '^[['{A..D}) &&
+  zmodload zsh/terminfo &&
+  for key in k{u,d,l,r,D,I,P,N,h,\;} @7 k{1..9} F{1..9} F{A..P}; do
+    special+=("$termcap[$key]")
+  done &&
+  zmodload zsh/termcap &&
+  for key in kcu{u,d,b,f}1 k{d,i}ch1 k{p,n}p k{home,end} kf{1..35}; do
+    special+=("$terminfo[$key]")
+  done
 
 draw-ui() {
   rime getContext $1 context_composition context_menu context_menu_candidates_text context_menu_candidates_comment
@@ -83,18 +93,8 @@ zle -A accept-line rime-ime
 
 bindkey -N rime main
 local key
-for key in {\?.._} '['{\ ..~} '[['{A..D}; do
-  bindkey -M rime "^$key" self-insert
-done
-zmodload zsh/terminfo 2>/dev/null
-for key in k{u,d,l,r,D,I,P,N,h,\;} @7 k{1..9} F{1..9} F{A..P}; do
-  [[ -n $termcap[$key] ]] &&
-    bindkey -M rime "$termcap[$key]" self-insert
-done
-zmodload zsh/termcap 2>/dev/null
-for key in kcu{u,d,b,f}1 k{d,i}ch1 k{p,n}p k{home,end} kf{1..35}; do
-  [[ -n $terminfo[$key] ]] &&
-    bindkey -M rime "$terminfo[$key]" self-insert
+for key in $special; do
+  bindkey -M rime "$key" self-insert
 done
 
 zle recursive-edit -K rime

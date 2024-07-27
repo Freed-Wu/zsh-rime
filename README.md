@@ -74,6 +74,17 @@ zstyle -s ':rime:traits' app-name app_name ||
   app_name=rime.zsh-rime
 zstyle -s ':rime:traits' min-log-level min_log_level ||
   min_log_level=3
+
+zstyle -a ':rime:keys' special special ||
+  special=('^'{\?.._} '^['{\ ..~} '^[['{A..D}) &&
+  zmodload zsh/terminfo &&
+  for key in k{u,d,l,r,D,I,P,N,h,\;} @7 k{1..9} F{1..9} F{A..P}; do
+    special+=("$termcap[$key]")
+  done &&
+  zmodload zsh/termcap &&
+  for key in kcu{u,d,b,f}1 k{d,i}ch1 k{p,n}p k{home,end} kf{1..35}; do
+    special+=("$terminfo[$key]")
+  done
 ```
 
 ## Integrate
