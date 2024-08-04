@@ -22,7 +22,7 @@ sudo pacman -S --noconfirm librime pkg-config make
 # Android Termux
 apt-get -y install librime pkg-config make
 # Nix
-# use nix-shell to create a virtual environment then build
+# without any extra operation
 # homebrew
 brew tap tonyfettes/homebrew-rime
 brew install librime pkg-config make
