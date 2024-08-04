@@ -13,6 +13,23 @@ A video can be found [here](https://asciinema.org/a/660633).
 - [make](https://www.gnu.org/software/make/)
 - A C compiler
 
+```sh
+# Ubuntu
+sudo apt-get -y install librime-dev librime1 pkg-config make
+sudo apt-mark auto librime-dev pkg-config make
+# ArchLinux
+sudo pacman -S --noconfirm librime pkg-config make
+# Android Termux
+apt-get -y install librime pkg-config make
+# Nix
+# use nix-shell to create a virtual environment then build
+# homebrew
+brew tap tonyfettes/homebrew-rime
+brew install librime pkg-config make
+# Windows msys2
+pacboy -S --noconfirm pkg-config:x librime:x gcc:x make:x
+```
+
 ## Install
 
 ### [zinit](https://github.com/zdharma-continuum/zinit/)
