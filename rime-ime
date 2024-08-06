@@ -18,11 +18,11 @@ zstyle -s ':rime:ui' prompt-len prompt_len ||
   prompt_len=2
 zstyle -a ':rime:keys' special special ||
   special=('^'{\?.._} '^['{\ ..~} '^[['{A..D}) &&
-  zmodload zsh/terminfo &&
+  zmodload zsh/termcap &&
   for key in k{u,d,l,r,D,I,P,N,h,\;} @7 k{1..9} F{1..9} F{A..P}; do
     special+=("$termcap[$key]")
   done &&
-  zmodload zsh/termcap &&
+  zmodload zsh/terminfo &&
   for key in kcu{u,d,b,f}1 k{d,i}ch1 k{p,n}p k{home,end} kf{1..35}; do
     special+=("$terminfo[$key]")
   done
