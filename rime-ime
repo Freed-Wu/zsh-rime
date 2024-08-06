@@ -33,9 +33,15 @@ draw-ui() {
     rime getCommit $1 commit
     LBUFFER+=$commit[text]
   fi
-  local -i ime_len=$(wc -L <<< $LBUFFER)
+  local last_line=${LBUFFER##*$'\n'}
+  local -i ime_len=$(wc -L <<< "$last_line")
   local ime_prefix=${(l:$ime_len:: :)}
-  local prompt_prefix=${(l:$prompt_len:: :)}
+  local prompt_prefix
+  if [[ $last_line == $LBUFFER ]]; then
+    prompt_prefix=${(l:$prompt_len:: :)}
+  else
+    prompt_prefix=''
+  fi
   local cursor_pos="$(( context_composition[cursor_pos] + 1 ))"
   preedit=$context_composition[preedit]
   local text="$prompt_prefix$ime_prefix$preedit[0, cursor_pos - 1]$cursor$preedit[cursor_pos,-1]"
