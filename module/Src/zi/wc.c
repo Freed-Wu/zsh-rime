@@ -38,7 +38,6 @@ math_wcswidth(UNUSED(char *name), char *arg, UNUSED(int id))
 
     ret.type = MN_INTEGER;
 #define DEFAULT_BUFFER_SIZE 1024
-    setlocale(LC_CTYPE, "");
     wchar_t wc[DEFAULT_BUFFER_SIZE] = L"";
     arg = unmetafy(arg, NULL);
     size_t wc_len = mbstowcs(wc, arg, strlen(arg));
