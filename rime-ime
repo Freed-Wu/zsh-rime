@@ -34,7 +34,7 @@ draw-ui() {
     LBUFFER+=$commit[text]
   fi
   local last_line=${LBUFFER##*$'\n'}
-  local -i ime_len=$(wc -L <<< "$last_line")
+  local -i ime_len=$((wcswidth($last_line)))
   local ime_prefix=${(l:$ime_len:: :)}
   local prompt_prefix
   if [[ $last_line == $LBUFFER ]]; then
@@ -92,6 +92,8 @@ self-insert() {
   fi
   draw-ui $rime_session_id
 }
+
+zmodload zi/wc
 
 zle -N self-insert
 zle -A rime-ime save-rime-ime

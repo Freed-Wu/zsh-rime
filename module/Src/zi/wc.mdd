@@ -1,0 +1,7 @@
+name=zi/wc
+link=dynamic
+load=no
+
+autofeatures="f:wcswidth"
+
+objects="wc.o"
