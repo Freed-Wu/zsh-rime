@@ -70,7 +70,7 @@ zstyle -s ':rime:ui' cursor cursor || cursor='|'
 zstyle -s ':rime:ui' prompt-len prompt_len || prompt_len=2
 
 zstyle -a ':rime:traits' shared-data-dir shared_data_dir ||
-  for dir in ${PREFIX:-/usr}/share/rime-data /usr/local/share/rime-data /run/current-system/sw/share/rime-data /sdcard/rime-data; do
+  for dir in {${PREIFX:-${SHELL%/*/*}}{,/usr}/share,/sdcard}/rime-data; do
     [[ -d $dir ]] &&
       shared_data_dir=$dir
   done
