@@ -1,7 +1,6 @@
 .cache/
 *.zwc
 *.mk
-*.in
 # cd module/
 # Src/mkmakemod.sh Src/zi Makefile
 !module/Src/zi/Makefile.in
