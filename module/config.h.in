@@ -1094,6 +1094,9 @@
    exec'd with basename that starts with r. By default this is defined. */
 #undef RESTRICTED_R
 
+/* after 1.12.0, librime API changed */
+#undef RIME_API_VERSION
+
 /* Define to 1 if RLIMIT_RSS and RLIMIT_AS both exist and are equal. */
 #undef RLIMIT_RSS_IS_AS
 
