@@ -35,8 +35,10 @@
 #define DEFAULT_BUFFER_SIZE 1024
 /* parameters */
 
+static RimeApi *rime;
+
 static struct builtin bintab[] = {
-    BUILTIN("rime", 0, rime, 0, -1, 0, "", NULL),
+    BUILTIN("rime", 0, _rime, 0, -1, 0, "", NULL),
 };
 
 #define CHECK_NOT_NULL(arg, var)                                \
@@ -66,7 +68,7 @@ do {                                                            \
 
 /**/
 static int
-rime(char *nam, char **args, Options ops, UNUSED(int func))
+_rime(char *nam, char **args, Options ops, UNUSED(int func))
 {
     char usage[] = "rime init [arguments...]\n"
 		   "rime createSession [session_id]\n"
@@ -124,21 +126,21 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
   CHECK_NOT_NULL(rime_traits.distribution_code_name, distribution_code_name);
   CHECK_NOT_NULL(rime_traits.distribution_version, distribution_version);
   CHECK_NOT_NULL(rime_traits.app_name, app_name);
-	RimeSetup(&rime_traits);
-	RimeInitialize(&rime_traits);
+	rime->setup(&rime_traits);
+	rime->initialize(&rime_traits);
     }
     else if (ztrcmp(args[0], "createSession") == 0) {
-	RimeSessionId session_id = RimeCreateSession();
+	RimeSessionId session_id = rime->create_session();
 	if (session_id == 0) {
 	    fputs("failed to create session", stderr);
 	    return EXIT_FAILURE;
 	}
-	setiparam(args[1] ? args[1] : "rime_session_id", session_id);
+	setiparam(args[1] ? args[1] : "rime->session_id", session_id);
     }
     else if (ztrcmp(args[0], "destroySession") == 0) {
 	zulong session_id;
 	GET_POSITIVE_NUMBER(args[1], session_id);
-	if (!RimeDestroySession(session_id)) {
+	if (!rime->destroy_session(session_id)) {
 	    fprintf(stderr, "failed to destroy session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
@@ -147,15 +149,15 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	zulong session_id;
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	char schema_id[DEFAULT_BUFFER_SIZE];
-	if (!(RimeGetCurrentSchema(session_id, schema_id, DEFAULT_BUFFER_SIZE))) {
+	if (!(rime->get_current_schema(session_id, schema_id, DEFAULT_BUFFER_SIZE))) {
 	    fprintf(stderr, "failed to get current schema of session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
-	setsparam(args[2] ? args[2] : "rime_schema_id", ztrdup(schema_id));
+	setsparam(args[2] ? args[2] : "rime->schema_id", ztrdup(schema_id));
     }
     else if (ztrcmp(args[0], "getSchemaList") == 0) {
 	RimeSchemaList schema_list;
-	if (!RimeGetSchemaList(&schema_list)) {
+	if (!rime->get_schema_list(&schema_list)) {
 	    fputs("failed to get schema list", stderr);
 	    return EXIT_FAILURE;
 	}
@@ -176,7 +178,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	    fputs("missing schema_id", stderr);
 	    return EXIT_FAILURE;
 	}
-	if (!RimeSelectSchema(session_id, args[2])) {
+	if (!rime->select_schema(session_id, args[2])) {
 	    fprintf(stderr, "failed to select schema %s for session %lu\n", args[2], session_id);
 	    return EXIT_FAILURE;
 	}
@@ -186,14 +188,14 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	GET_NUMBER(args[2], keycode);
 	GET_NUMBER(args[3], mask);
-	if (!RimeProcessKey(session_id, keycode, mask))
+	if (!rime->process_key(session_id, keycode, mask))
     return EXIT_FAILURE;
     }
     else if (ztrcmp(args[0], "getContext") == 0) {
 	zulong session_id;
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	RIME_STRUCT(RimeContext, context);
-	if (!(RimeGetContext(session_id, &context))) {
+	if (!(rime->get_context(session_id, &context))) {
 	    fprintf(stderr, "failed to get context of session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
@@ -217,7 +219,7 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	*ptr++ = ztrdup_metafy(context.composition.preedit ? context.composition.preedit : "");
 	*ptr++ = ztrdup(NULL);
 	*ptr++ = ztrdup(NULL);
-	sethparam(args[2] ? args[2] : "rime_context_composition", val);
+	sethparam(args[2] ? args[2] : "rime->context_composition", val);
 
 	ptr = val = (char **)zalloc((6 + 1) * 2 * sizeof(char *));
 	sprintf(str, "%d", context.menu.page_size);
@@ -239,29 +241,29 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	*ptr++ = ztrdup(context.menu.select_keys ? context.menu.select_keys : "");
 	*ptr++ = ztrdup(NULL);
 	*ptr++ = ztrdup(NULL);
-	sethparam(args[3] ? args[3] : "rime_context_menu", val);
+	sethparam(args[3] ? args[3] : "rime->context_menu", val);
 
 	ptr = val = (char **)zalloc((context.menu.num_candidates + 1) * 2 * sizeof(char *));
 	for (size_t i = 0; i < context.menu.num_candidates; i++) {
 	    *ptr++ = ztrdup_metafy(context.menu.candidates[i].text ? context.menu.candidates[i].text : "");
 	}
 	*ptr++ = ztrdup(NULL);
-	setaparam(args[4] ? args[4] : "rime_context_menu_candidates_text", val);
+	setaparam(args[4] ? args[4] : "rime->context_menu_candidates_text", val);
 
 	ptr = val = (char **)zalloc((context.menu.num_candidates + 1) * 2 * sizeof(char *));
 	for (size_t i = 0; i < context.menu.num_candidates; i++) {
 	    *ptr++ = ztrdup_metafy(context.menu.candidates[i].comment ? context.menu.candidates[i].comment : "");
 	}
 	*ptr++ = ztrdup(NULL);
-	setaparam(args[5] ? args[5] : "rime_context_menu_candidates_comment", val);
+	setaparam(args[5] ? args[5] : "rime->context_menu_candidates_comment", val);
 
-	RimeFreeContext(&context);
+	rime->free_context(&context);
     }
     else if (ztrcmp(args[0], "getCommit") == 0) {
 	zulong session_id;
 	GET_POSITIVE_NUMBER(args[1], session_id);
 	RIME_STRUCT(RimeCommit, commit);
-	if (!(RimeGetCommit(session_id, &commit))) {
+	if (!(rime->get_commit(session_id, &commit))) {
 	    fprintf(stderr, "failed to get commit of session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
@@ -270,18 +272,18 @@ rime(char *nam, char **args, Options ops, UNUSED(int func))
 	*ptr++ = ztrdup_metafy(commit.text);
 	*ptr++ = ztrdup(NULL);
 	*ptr++ = ztrdup(NULL);
-	sethparam(args[2] ? args[2] : "rime_commit", val);
-	RimeFreeCommit(&commit);
+	sethparam(args[2] ? args[2] : "rime->commit", val);
+	rime->free_commit(&commit);
     }
     else if (ztrcmp(args[0], "commitComposition") == 0) {
 	zulong session_id;
 	GET_POSITIVE_NUMBER(args[1], session_id);
-	return RimeCommitComposition(session_id) == True ? EXIT_SUCCESS : EXIT_FAILURE;
+	return rime->commit_composition(session_id) == True ? EXIT_SUCCESS : EXIT_FAILURE;
     }
     else if (ztrcmp(args[0], "clearComposition") == 0) {
 	zulong session_id;
 	GET_POSITIVE_NUMBER(args[1], session_id);
-	RimeClearComposition(session_id);
+	rime->clear_composition(session_id);
     } else {
     	fputs(usage, stderr);
 	return EXIT_FAILURE;
@@ -314,6 +316,7 @@ static struct features module_features = {
 int
 setup_(UNUSED(Module m))
 {
+    rime = rime_get_api();
     return EXIT_SUCCESS;
 }
 
