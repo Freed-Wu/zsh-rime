@@ -68,9 +68,6 @@ fi])
 
 CPPFLAGS="`pkg-config --cflags rime` $CPPFLAGS"
 LIBS="`pkg-config --libs rime` $LIBS"
-RIME_API_VERSION=`pkg-config --modversion rime`
-RIME_API_VERSION=${RIME_API_VERSION//./}
-AC_DEFINE_UNQUOTED(RIME_API_VERSION, $RIME_API_VERSION, [after 1.12.0, librime API changed])
 
 dnl Do you want zsh memory allocation routines.
 ifdef([zsh-mem],[undefine([zsh-mem])])dnl

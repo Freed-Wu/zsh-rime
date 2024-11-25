@@ -3016,11 +3016,6 @@ fi
 
 CPPFLAGS="`pkg-config --cflags rime` $CPPFLAGS"
 LIBS="`pkg-config --libs rime` $LIBS"
-RIME_API_VERSION=`pkg-config --modversion rime`
-RIME_API_VERSION=${RIME_API_VERSION//./}
-
-printf "%s\n" "#define RIME_API_VERSION $RIME_API_VERSION" >>confdefs.h
-
 
 
 # Check whether --enable-zsh-mem was given.

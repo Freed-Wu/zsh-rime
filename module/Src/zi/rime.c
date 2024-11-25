@@ -27,15 +27,9 @@
  *
  */
 #include <stdio.h>
+#include <rime_api.h>
 
 #include "rime.mdh"
-
-#if RIME_API_VERSION >= 1120
-#include <rime_api_deprecated.h>
-#else
-#include <rime_api.h>
-#endif
-
 #include "rime.pro"
 
 #define DEFAULT_BUFFER_SIZE 1024
