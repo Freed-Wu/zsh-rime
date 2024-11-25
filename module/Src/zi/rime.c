@@ -30,7 +30,7 @@
 
 #include "rime.mdh"
 
-#if RIME_API_VERSION >= 1120
+#ifdef RIME_API_DEPRECATED
 #include <rime_api_deprecated.h>
 #else
 #include <rime_api.h>
