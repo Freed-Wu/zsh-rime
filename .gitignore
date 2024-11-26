@@ -1,6 +1,7 @@
+/tests/_output/
+
 .cache/
 *.zwc
-*.mk
 # cd module/
 # Src/mkmakemod.sh Src/zi Makefile
 !module/Src/zi/Makefile.in
