@@ -135,7 +135,7 @@ _rime(char *nam, char **args, Options ops, UNUSED(int func))
 	    fputs("failed to create session", stderr);
 	    return EXIT_FAILURE;
 	}
-	setiparam(args[1] ? args[1] : "rime->session_id", session_id);
+	setiparam(args[1] ? args[1] : "rime_session_id", session_id);
     }
     else if (ztrcmp(args[0], "destroySession") == 0) {
 	zulong session_id;
@@ -153,7 +153,7 @@ _rime(char *nam, char **args, Options ops, UNUSED(int func))
 	    fprintf(stderr, "failed to get current schema of session %lu\n", session_id);
 	    return EXIT_FAILURE;
 	}
-	setsparam(args[2] ? args[2] : "rime->schema_id", ztrdup(schema_id));
+	setsparam(args[2] ? args[2] : "rime_schema_id", ztrdup(schema_id));
     }
     else if (ztrcmp(args[0], "getSchemaList") == 0) {
 	RimeSchemaList schema_list;
@@ -219,7 +219,7 @@ _rime(char *nam, char **args, Options ops, UNUSED(int func))
 	*ptr++ = ztrdup_metafy(context.composition.preedit ? context.composition.preedit : "");
 	*ptr++ = ztrdup(NULL);
 	*ptr++ = ztrdup(NULL);
-	sethparam(args[2] ? args[2] : "rime->context_composition", val);
+	sethparam(args[2] ? args[2] : "rime_context_composition", val);
 
 	ptr = val = (char **)zalloc((6 + 1) * 2 * sizeof(char *));
 	sprintf(str, "%d", context.menu.page_size);
@@ -241,21 +241,21 @@ _rime(char *nam, char **args, Options ops, UNUSED(int func))
 	*ptr++ = ztrdup(context.menu.select_keys ? context.menu.select_keys : "");
 	*ptr++ = ztrdup(NULL);
 	*ptr++ = ztrdup(NULL);
-	sethparam(args[3] ? args[3] : "rime->context_menu", val);
+	sethparam(args[3] ? args[3] : "rime_context_menu", val);
 
 	ptr = val = (char **)zalloc((context.menu.num_candidates + 1) * 2 * sizeof(char *));
 	for (size_t i = 0; i < context.menu.num_candidates; i++) {
 	    *ptr++ = ztrdup_metafy(context.menu.candidates[i].text ? context.menu.candidates[i].text : "");
 	}
 	*ptr++ = ztrdup(NULL);
-	setaparam(args[4] ? args[4] : "rime->context_menu_candidates_text", val);
+	setaparam(args[4] ? args[4] : "rime_context_menu_candidates_text", val);
 
 	ptr = val = (char **)zalloc((context.menu.num_candidates + 1) * 2 * sizeof(char *));
 	for (size_t i = 0; i < context.menu.num_candidates; i++) {
 	    *ptr++ = ztrdup_metafy(context.menu.candidates[i].comment ? context.menu.candidates[i].comment : "");
 	}
 	*ptr++ = ztrdup(NULL);
-	setaparam(args[5] ? args[5] : "rime->context_menu_candidates_comment", val);
+	setaparam(args[5] ? args[5] : "rime_context_menu_candidates_comment", val);
 
 	rime->free_context(&context);
     }
@@ -272,7 +272,7 @@ _rime(char *nam, char **args, Options ops, UNUSED(int func))
 	*ptr++ = ztrdup_metafy(commit.text);
 	*ptr++ = ztrdup(NULL);
 	*ptr++ = ztrdup(NULL);
-	sethparam(args[2] ? args[2] : "rime->commit", val);
+	sethparam(args[2] ? args[2] : "rime_commit", val);
 	rime->free_commit(&commit);
     }
     else if (ztrcmp(args[0], "commitComposition") == 0) {
