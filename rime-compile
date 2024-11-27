@@ -13,8 +13,9 @@ zstyle -s ":rime:build" ldflags ldf || ldf="-L/usr/local/lib"
   zmodload zsh/system && { zsystem flock -t 1 "$1/module/configure.ac" || build=0; }
   if (( build )); then
     builtin cd "$1/module"
+    local -a nix_shell
     if (( $+commands[nix] )); then
-      local -a nix_shell=(nix-shell ../shell.nix --pure --run)
+      nix_shell=(nix-shell ../shell.nix --pure --run)
     fi
     CPPFLAGS="$cppf" CFLAGS="$cf" LDFLAGS="$ldf" $nix_shell ./configure
     command $nix_shell make clean
