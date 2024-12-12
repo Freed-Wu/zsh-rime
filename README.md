@@ -24,7 +24,6 @@ apt-get -y install librime pkg-config make
 # Nix
 # without any extra operation
 # homebrew
-brew tap tonyfettes/homebrew-rime
 brew install librime pkg-config make
 # Windows msys2
 pacboy -S --noconfirm pkg-config librime gcc make
